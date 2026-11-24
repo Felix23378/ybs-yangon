@@ -100,7 +100,7 @@ function drawRouteMap() {
   const distToY = (d: number) => botY - Math.max(0, Math.min(1, d / totalDist)) * span
 
   // Base road track
-  ctx.strokeStyle = '#315241'
+  ctx.strokeStyle = '#2d3b4d'
   ctx.lineWidth = 4
   ctx.lineCap = 'round'
   ctx.beginPath()
@@ -110,7 +110,7 @@ function drawRouteMap() {
 
   // Completed progress line
   const playerY = distToY(drive.distance)
-  ctx.strokeStyle = '#ffcf58'
+  ctx.strokeStyle = '#ffbe4f'
   ctx.lineWidth = 4
   ctx.beginPath()
   ctx.moveTo(trackX, botY)
@@ -170,15 +170,15 @@ function drawRouteMap() {
   }
 
   // Live YBS 37 player bus marker
-  ctx.fillStyle = '#13241b'
+  ctx.fillStyle = '#121726'
   ctx.beginPath()
   ctx.arc(trackX, playerY, 7, 0, Math.PI * 2)
   ctx.fill()
-  ctx.fillStyle = '#ffcf58'
+  ctx.fillStyle = '#ffbe4f'
   ctx.beginPath()
   ctx.arc(trackX, playerY, 5.2, 0, Math.PI * 2)
   ctx.fill()
-  ctx.fillStyle = '#13241b'
+  ctx.fillStyle = '#121726'
   ctx.beginPath()
   ctx.moveTo(trackX, playerY - 3.2)
   ctx.lineTo(trackX + 2.8, playerY + 2)

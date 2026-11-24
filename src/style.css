@@ -1,17 +1,18 @@
 :root {
   color-scheme: dark;
   font-family: "Noto Sans Myanmar", "Myanmar Text", "Padauk", "Trebuchet MS", system-ui, sans-serif;
-  --ink: #13241b;
-  --panel: #152b20eb;
-  --paper: #fff5db;
-  --muted: #c6d6c0;
-  --accent: #ffcf58;
-  --green: #2fa663;
-  --danger: #d94a38;
+  --ink: #121726;
+  --panel: #131c29e6;
+  --paper: #fff3db;
+  --muted: #c2cad6;
+  --accent: #ffbe4f;
+  --teal: #34d399;
+  --sunset: #f07d54;
+  --danger: #e85346;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
-  margin: 0; width: 100%; height: 100%; overflow: hidden;
+  margin: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden;
   background: var(--ink); color: var(--paper);
   overscroll-behavior: none;
   -webkit-user-select: none; user-select: none;
@@ -23,11 +24,13 @@ button {
 }
 button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
 [hidden] { display: none !important; }
-#game, #scene, #fx { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
+#game, #scene, #fx {
+  position: fixed; inset: 0; width: 100%; height: 100dvh; overflow: hidden; touch-action: none;
+}
 #scene canvas { display: block; width: 100%; height: 100%; }
 #fx { pointer-events: none; transition: box-shadow 0.14s ease-out; }
 #fx.crash { box-shadow: inset 0 0 90px 28px #e8432ecc; }
-#fx.horn { box-shadow: inset 0 0 55px 8px #ffcf5866; }
+#fx.horn { box-shadow: inset 0 0 55px 8px #ffbe4f66; }
 
 .hud {
   position: absolute;
@@ -39,8 +42,8 @@ button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
   gap: 6px 8px; align-items: stretch; pointer-events: none; z-index: 2;
 }
 .route, .cash, .speed, #pause, #mute, #mapToggle, .routemap, #hornBtn {
-  background: var(--panel); border: 1px solid #88c99f3d; border-radius: 9px;
-  box-shadow: 0 4px 16px #0b191255;
+  background: var(--panel); border: 1px solid #ffbe4f38; border-radius: 10px;
+  box-shadow: 0 4px 18px #080c1766; backdrop-filter: blur(6px);
 }
 .route {
   display: flex; gap: 9px; padding: 6px 10px 6px 6px;
@@ -48,12 +51,12 @@ button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
 }
 .route div { min-width: 0; }
 .route strong, .ticket-brand span {
-  color: var(--ink); background: var(--accent); border-radius: 5px;
+  color: var(--ink); background: linear-gradient(135deg, #ffd166, #f59e42); border-radius: 6px;
   padding: 2px 8px; font-size: 24px; font-weight: 900; line-height: 1.15; flex-shrink: 0;
 }
 .route b, .cash b { display: block; font-size: 13px; line-height: 1.35; }
 .cash b.pop { animation: cashPop 0.35s ease-out; }
-@keyframes cashPop { 0% { transform: scale(1.25); color: #6ef29e; } 100% { transform: scale(1); } }
+@keyframes cashPop { 0% { transform: scale(1.25); color: var(--teal); } 100% { transform: scale(1); } }
 small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; }
 #next { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cash {
@@ -69,10 +72,10 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
 }
 #pause:disabled { opacity: .6; }
 #mapToggle.active { border-color: var(--accent); }
-progress { grid-column: 1 / -1; width: 100%; height: 4px; border: 0; background: #10211988; appearance: none; border-radius: 2px; }
-progress::-webkit-progress-bar { background: #10211988; border-radius: 2px; }
-progress::-webkit-progress-value { background: var(--accent); border-radius: 2px; }
-progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
+progress { grid-column: 1 / -1; width: 100%; height: 4px; border: 0; background: #141e2e99; appearance: none; border-radius: 2px; }
+progress::-webkit-progress-bar { background: #141e2e99; border-radius: 2px; }
+progress::-webkit-progress-value { background: linear-gradient(90deg, var(--sunset), var(--accent)); border-radius: 2px; }
+progress::-moz-progress-bar { background: linear-gradient(90deg, var(--sunset), var(--accent)); border-radius: 2px; }
 
 .routemap {
   position: absolute;
@@ -86,8 +89,8 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
   position: absolute;
   top: calc(max(12px, env(safe-area-inset-top)) + 68px);
   left: 50%; translate: -50% 0; width: max-content;
-  max-width: calc(100% - 220px); text-align: center; border-radius: 7px; padding: 7px 13px;
-  color: var(--accent); background: var(--panel); border: 1px solid #ffcf5855;
+  max-width: calc(100% - 220px); text-align: center; border-radius: 8px; padding: 7px 13px;
+  color: var(--accent); background: var(--panel); border: 1px solid #ffbe4f66;
   font-size: 13px; font-weight: 700; line-height: 1.45; pointer-events: none; z-index: 3;
 }
 #notice:empty { display: none; }
@@ -108,13 +111,13 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
   background: #ffffff1f; color: var(--paper); margin-left: 2px;
 }
 #hornBtn.held { background: var(--accent); color: var(--ink); transform: scale(0.96); }
-#hornBtn.held kbd { background: #18282033; color: var(--ink); }
+#hornBtn.held kbd { background: #12172633; color: var(--ink); }
 
 .speed {
   min-width: 86px; padding: 6px 11px 8px; text-align: center; pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
-.speed b { display: block; font-size: 31px; line-height: 1.05; }
+.speed b { display: block; font-size: 31px; line-height: 1.05; color: var(--accent); }
 .speed small { margin-top: 3px; font-size: 10px; }
 
 /* Ergonomic dual-thumb mobile touch controls */
@@ -122,34 +125,34 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
   display: none; position: absolute;
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  bottom: max(14px, env(safe-area-inset-bottom));
   justify-content: space-between; align-items: flex-end; gap: 10px;
   pointer-events: none; z-index: 3;
 }
 .steer-pad { display: flex; gap: 10px; align-items: flex-end; }
 .steer-pad button {
   pointer-events: auto; touch-action: none; user-select: none;
-  width: 66px; height: 66px; font-size: 26px;
-  background: #152b20dd; border: 2px solid #9adcb266; border-radius: 14px;
-  box-shadow: 0 4px 14px #09140e66;
+  width: 68px; height: 64px; font-size: 26px;
+  background: #131c29d9; border: 2px solid #ffbe4f66; border-radius: 16px;
+  box-shadow: 0 4px 16px #070b1477; backdrop-filter: blur(4px);
 }
 .pedal-pad { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .pedals { display: flex; gap: 8px; align-items: flex-end; }
 .pedal-pad button {
   pointer-events: auto; touch-action: none; user-select: none;
-  border-radius: 14px; box-shadow: 0 4px 14px #09140e66;
+  border-radius: 16px; box-shadow: 0 4px 16px #070b1477; backdrop-filter: blur(4px);
 }
 .btn-horn {
   padding: 8px 14px; min-height: 40px; font-size: 13px;
-  background: #1a3326e6; border: 1.5px solid #ffcf5880; color: var(--accent);
+  background: #1d2436e0; border: 1.5px solid #ffbe4f88; color: var(--accent);
 }
 .btn-brake {
   min-width: 68px; height: 58px; padding: 0 10px; font-size: 13px;
-  background: #3d1c19e6; border: 2px solid #e86b5888; color: #ffd9d2;
+  background: #421b22e0; border: 2px solid #f06d5b88; color: #ffdcd6;
 }
 .btn-gas {
   min-width: 78px; height: 68px; padding: 0 12px; font-size: 15px;
-  background: #1a4b30eb; border: 2px solid #69e09999; color: #e9ffef;
+  background: #154538e6; border: 2px solid #4df0a499; color: #e6fff4;
 }
 .controls button.held {
   color: var(--ink); background: var(--accent); border-color: #fff3c4;
@@ -159,12 +162,13 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
 .overlay {
   position: absolute; inset: 0; display: grid; align-items: center;
   padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-  background: linear-gradient(90deg, #10241ae0, #10241a33);
+  background: linear-gradient(135deg, #121728e6, #4a233577);
   overflow: auto; z-index: 6;
 }
 .ticket {
   width: min(100%, 420px); margin-left: clamp(0px, 4vw, 52px); padding: clamp(16px, 4vw, 28px);
-  background: var(--panel); border: 1px solid #ffcf5866; border-top: 4px solid var(--accent); border-radius: 12px;
+  background: var(--panel); border: 1px solid #ffbe4f66; border-top: 4px solid var(--accent); border-radius: 14px;
+  backdrop-filter: blur(8px);
 }
 .ticket-brand { display: flex; align-items: center; gap: 9px; color: var(--accent); font-weight: 800; font-size: 12px; }
 h1 { font-size: clamp(24px, 5vw, 40px); line-height: 1.3; margin: 14px 0 10px; }
@@ -172,75 +176,92 @@ p { margin: 0 0 10px; line-height: 1.55; }
 #description { font-weight: 800; color: var(--accent); }
 #details { color: var(--muted); font-size: 13px; line-height: 1.6; }
 #primary {
-  border: 0; border-radius: 8px; min-height: 48px; width: 100%;
-  background: var(--accent); color: var(--ink); padding: 10px 18px;
+  border: 0; border-radius: 10px; min-height: 48px; width: 100%;
+  background: linear-gradient(135deg, #ffd166, #f59e42); color: var(--ink); padding: 10px 18px;
   margin: 4px 0 10px; font-size: 16px;
 }
 
-/* Mobile & touch devices (portrait + landscape + tablets) */
+/* Mobile & touch devices */
 @media (pointer: coarse), (hover: none), (max-width: 900px) {
   .controls { display: flex; }
   #hornBtn { display: none; }
   .bottom-right {
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 124px);
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 126px);
     right: max(10px, env(safe-area-inset-right));
   }
-  .speed { min-width: 70px; padding: 4px 8px 6px; }
+  .speed { min-width: 68px; padding: 4px 8px 6px; }
   .speed b { font-size: 24px; }
 }
 
-@media (max-width: 640px) {
+/* Dedicated Native Portrait Mobile Layout (phones held vertically) */
+@media (max-width: 600px) and (orientation: portrait), (max-width: 540px) {
   .hud {
     top: max(8px, env(safe-area-inset-top));
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
-    gap: 4px 5px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 6px;
   }
-  .route { gap: 6px; padding: 5px 7px 5px 5px; }
+  .route {
+    grid-column: 1 / 2; grid-row: 1;
+    width: 100%; gap: 7px; padding: 5px 8px 5px 5px;
+  }
   .route strong { font-size: 19px; padding: 1px 6px; }
-  .route b, .cash b { font-size: 11px; }
-  .cash { gap: 8px; padding: 4px 7px; }
-  .cash small, small { font-size: 9.5px; }
-  #pause, #mute, #mapToggle { width: 32px; min-height: 32px; font-size: 14px; }
+  .route b { font-size: 11.5px; }
+  .hud-actions {
+    grid-column: 2 / 3; grid-row: 1;
+    align-items: center; gap: 4px;
+  }
+  #pause, #mute, #mapToggle { width: 34px; min-height: 34px; font-size: 14px; }
+  .cash {
+    grid-column: 1 / -1; grid-row: 2;
+    justify-content: space-between; text-align: left;
+    padding: 4px 10px; gap: 10px;
+  }
+  .cash > div { display: flex; align-items: baseline; gap: 6px; }
+  .cash b { font-size: 12px; }
+  .cash small, small { font-size: 10px; }
+  progress { grid-row: 3; }
+
   .routemap {
-    top: calc(max(8px, env(safe-area-inset-top)) + 58px);
+    top: calc(max(8px, env(safe-area-inset-top)) + 88px);
     left: max(8px, env(safe-area-inset-left));
-    width: 142px; padding: 4px;
+    width: 124px; padding: 4px;
   }
   #notice {
-    top: calc(max(8px, env(safe-area-inset-top)) + 58px);
+    top: calc(max(8px, env(safe-area-inset-top)) + 88px);
     left: auto; right: max(8px, env(safe-area-inset-right)); translate: none;
-    max-width: calc(100% - 164px); font-size: 11px; padding: 5px 8px;
+    max-width: calc(100% - 144px); font-size: 11px; padding: 5px 8px;
   }
   .ticket { margin-left: 0; }
-  .steer-pad button { width: 60px; height: 60px; font-size: 24px; }
-  .btn-brake { min-width: 62px; height: 54px; font-size: 12px; }
-  .btn-gas { min-width: 72px; height: 64px; font-size: 14px; }
+  .controls {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  .steer-pad { gap: 8px; }
+  .steer-pad button { width: 64px; height: 64px; font-size: 25px; }
+  .btn-horn { min-height: 38px; padding: 6px 12px; font-size: 12px; }
+  .btn-brake { min-width: 64px; height: 56px; font-size: 12.5px; }
+  .btn-gas { min-width: 74px; height: 66px; font-size: 14px; }
+  .bottom-right {
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 122px);
+    right: max(8px, env(safe-area-inset-right));
+  }
 }
 
 /* Landscape mobile phones (short screen height) */
 @media (max-height: 480px) {
-  .hud {
-    top: max(6px, env(safe-area-inset-top));
-    gap: 3px 6px;
-  }
+  .hud { top: max(6px, env(safe-area-inset-top)); gap: 3px 6px; }
   .route { padding: 4px 7px 4px 4px; }
   .route strong { font-size: 18px; }
-  .routemap {
-    top: calc(max(6px, env(safe-area-inset-top)) + 50px);
-    width: 132px;
-  }
-  #notice {
-    top: calc(max(6px, env(safe-area-inset-top)) + 50px);
-    font-size: 11px; padding: 4px 9px;
-  }
+  .routemap { top: calc(max(6px, env(safe-area-inset-top)) + 50px); width: 132px; }
+  #notice { top: calc(max(6px, env(safe-area-inset-top)) + 50px); font-size: 11px; padding: 4px 9px; }
   .steer-pad button { width: 56px; height: 56px; font-size: 22px; }
   .btn-horn { min-height: 34px; padding: 5px 11px; font-size: 12px; }
   .btn-brake { min-width: 60px; height: 48px; font-size: 12px; }
   .btn-gas { min-width: 68px; height: 56px; font-size: 13px; }
-  .bottom-right {
-    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 104px);
-  }
+  .bottom-right { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 104px); }
   .overlay { padding: 8px; }
   .ticket { padding: 14px 18px; }
   h1 { font-size: 22px; margin: 8px 0 6px; }
@@ -248,9 +269,9 @@ p { margin: 0 0 10px; line-height: 1.55; }
 
 .overlay.dispatch {
   background:
-    linear-gradient(90deg, #10241ae8 2%, #10241a4a 62%, #10241a10),
+    linear-gradient(135deg, #12172ae8 8%, #5e2c4178 60%, #e07a5233),
     url('./art/dispatch.jpg') center 53% / cover;
 }
-@media (max-width: 450px) {
-  .overlay.dispatch { background-position: 55% center; }
+@media (max-width: 540px) {
+  .overlay.dispatch { background-position: 56% center; }
 }
