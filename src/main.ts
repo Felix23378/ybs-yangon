@@ -32,13 +32,15 @@ const radioMin = el<HTMLButtonElement>('radioMin')
 const radioStop = el<HTMLButtonElement>('radioStop')
 const routemapEl = el('routemap')
 
-// Verified 1980s YouTube hits for the in-bus radio
+// Verified 1980s Myanmar classic stereo tracks & albums on YouTube
 const songs1980s = [
-  { id: 'djV11Xbc914', title: 'a-ha · Take On Me (1985)' },
-  { id: 'FTQbiNvZqaY', title: 'Toto · Africa (1982)' },
-  { id: 'qeMFqkcPYcg', title: 'Eurythmics · Sweet Dreams (1983)' },
-  { id: 'Zi_XLOBDo_Y', title: 'Michael Jackson · Billie Jean (1983)' },
-  { id: 'btPJPFnesV4', title: 'Survivor · Eye of the Tiger (1982)' },
+  { id: 'a8KtIByKC54', title: 'စိုင်းထီးဆိုင် · လူကြမ်းမင်းသား (1981)' },
+  { id: 'QtgqqGsTP7g', title: 'ခင်မောင်တိုး · မဟာဆန်သူ' },
+  { id: '2ptLG72a_Dg', title: 'ထူးအိမ်သင် · နာရီပေါ်ကမျက်ရည်စက်များ' },
+  { id: 'VSaDN8ByOE8', title: 'ကော်နီ · ကိုကိုချစ် (1986)' },
+  { id: 'i9L_Db94aC0', title: 'ကိုင်ဇာ · လက်ရွေးစင်သီချင်းများ' },
+  { id: 'Ssyn53WCcmc', title: 'နှလုံးသားဟစ်ကြွေးသံများ (1988)' },
+  { id: 'suOJjYp12vE', title: 'စိုင်းထီးဆိုင် · လက်ရွေးစင်သီချင်းများ' },
 ] as const
 let radioIndex = 0
 let radioPlaying = false
