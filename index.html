@@ -24,18 +24,22 @@
   <aside id="routemap" class="routemap" aria-label="မှတ်တိုင်များနှင့် လမ်းကြောင်းမြေပုံ">
     <canvas id="mapCanvas" width="186" height="260"></canvas>
   </aside>
-  <aside id="radio" class="radio" hidden aria-label="1980s YouTube ရေဒီယို">
+  <aside id="radio" class="radio" hidden aria-label="1980s မြန်မာရေဒီယို">
+    <div class="radio-tabs">
+      <button id="tabCassette" class="active">📼 80s ကက်ဆက်</button>
+      <button id="tabYoutube">▶ YouTube</button>
+    </div>
     <div class="radio-bar">
       <span id="radioTrack">📻 1980s မြန်မာသီချင်း</span>
       <div class="radio-btns">
-        <button id="radioPlay" aria-label="ဖွင့်/ရပ်" title="ဖွင့်/ရပ်">▶</button>
+        <button id="radioPlay" aria-label="ဖွင့်/ရပ်" title="ဖွင့်/ရပ်">⏸</button>
         <button id="radioNext" aria-label="နောက်တစ်ပုဒ်" title="နောက်တစ်ပုဒ်">⏭</button>
         <button id="radioMin" aria-label="သေးထားမည်" title="သေးထားမည်">−</button>
         <button id="radioStop" aria-label="ပိတ်မည်" title="ပိတ်မည်">✕</button>
       </div>
     </div>
     <div id="radioHint" class="radio-hint"></div>
-    <div id="radioFrameWrap" class="radio-frame"><div id="ytPlayer"></div></div>
+    <div id="radioFrameWrap" class="radio-frame" hidden></div>
   </aside>
   <output id="notice" aria-live="polite"></output>
   <div class="bottom-right">

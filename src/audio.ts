@@ -26,6 +26,52 @@ export class SoundEngine {
   private wasBraking = false
   private prevSpeed = 0
 
+  // Built-in 1980s Myanmar Stereo Cassette Radio (zero-latency Web Audio)
+  private radioGain?: GainNode
+  private radioTimer?: number
+  private radioStep = 0
+  radioPlaying = false
+  radioTrackIndex = 0
+  readonly cassetteTracks = [
+    {
+      title: 'ပြည်လမ်း ညနေခင်း (80s Stereo)',
+      bpm: 94,
+      // Nostalgic Burmese major-pentatonic / stereo acoustic progression (C - Am - F - G)
+      melody: [523.25, 0, 587.33, 659.25, 783.99, 0, 659.25, 587.33, 523.25, 440, 0, 523.25, 587.33, 659.25, 587.33, 0],
+      bass: [130.81, 130.81, 110.0, 110.0, 87.31, 87.31, 98.0, 98.0],
+      chords: [
+        [261.63, 329.63, 392.0],
+        [220.0, 261.63, 329.63],
+        [174.61, 220.0, 261.63],
+        [196.0, 246.94, 293.66],
+      ],
+    },
+    {
+      title: 'မဟာဆန်သော သံစဉ် (80s Organ)',
+      bpm: 86,
+      melody: [659.25, 587.33, 523.25, 0, 440, 523.25, 587.33, 0, 783.99, 659.25, 587.33, 523.25, 440, 392.0, 440, 0],
+      bass: [110.0, 110.0, 87.31, 87.31, 130.81, 130.81, 98.0, 98.0],
+      chords: [
+        [220.0, 261.63, 329.63],
+        [174.61, 220.0, 261.63],
+        [261.63, 329.63, 392.0],
+        [196.0, 246.94, 293.66],
+      ],
+    },
+    {
+      title: 'ရန်ကုန် ၁၉၈၅ (80s Cassette)',
+      bpm: 104,
+      melody: [392.0, 440, 523.25, 587.33, 659.25, 587.33, 523.25, 0, 659.25, 783.99, 880, 783.99, 659.25, 587.33, 523.25, 0],
+      bass: [130.81, 130.81, 98.0, 98.0, 110.0, 110.0, 87.31, 98.0],
+      chords: [
+        [261.63, 329.63, 392.0],
+        [196.0, 246.94, 293.66],
+        [220.0, 261.63, 329.63],
+        [174.61, 220.0, 261.63],
+      ],
+    },
+  ] as const
+
   muted = false
   private started = false
 
@@ -174,9 +220,115 @@ export class SoundEngine {
     brakeSrc.start()
     this.brakeGain = brakeGain
 
+    const radioGain = ctx.createGain()
+    radioGain.gain.value = 0.42
+    radioGain.connect(master)
+    this.radioGain = radioGain
+
     this.started = true
     } catch {
       // AudioContext unavailable or restricted; game still runs cleanly
+    }
+  }
+
+  startCassette(trackIndex = this.radioTrackIndex) {
+    this.unlock()
+    if (!this.ctx || !this.radioGain) return
+    this.stopCassette()
+    this.radioTrackIndex = (trackIndex + this.cassetteTracks.length) % this.cassetteTracks.length
+    this.radioPlaying = true
+    this.radioStep = 0
+    const track = this.cassetteTracks[this.radioTrackIndex]
+    const stepMs = (60 / track.bpm / 2) * 1000 // eighth-note groove
+
+    const tickNote = () => {
+      if (!this.radioPlaying || !this.ctx || !this.radioGain) return
+      const now = this.ctx.currentTime
+      const step = this.radioStep++
+      const mIdx = step % track.melody.length
+      const bIdx = Math.floor(step / 2) % track.bass.length
+      const cIdx = Math.floor(step / 4) % track.chords.length
+
+      // Warm 80s electric guitar / vintage keyboard melody note
+      const melFreq = track.melody[mIdx]
+      if (melFreq > 0) {
+        const osc = this.ctx.createOscillator()
+        const filt = this.ctx.createBiquadFilter()
+        const g = this.ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(melFreq, now)
+        filt.type = 'lowpass'
+        filt.frequency.setValueAtTime(1800, now)
+        filt.frequency.exponentialRampToValueAtTime(750, now + 0.35)
+        g.gain.setValueAtTime(0.001, now)
+        g.gain.linearRampToValueAtTime(0.24, now + 0.02)
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.42)
+        osc.connect(filt)
+        filt.connect(g)
+        g.connect(this.radioGain)
+        osc.start(now)
+        osc.stop(now + 0.45)
+      }
+
+      // Warm 80s electric bass on every beat
+      if (step % 2 === 0) {
+        const bOsc = this.ctx.createOscillator()
+        const bg = this.ctx.createGain()
+        bOsc.type = 'sine'
+        bOsc.frequency.setValueAtTime(track.bass[bIdx], now)
+        bg.gain.setValueAtTime(0.001, now)
+        bg.gain.linearRampToValueAtTime(0.22, now + 0.02)
+        bg.gain.exponentialRampToValueAtTime(0.001, now + 0.45)
+        bOsc.connect(bg)
+        bg.connect(this.radioGain)
+        bOsc.start(now)
+        bOsc.stop(now + 0.48)
+      }
+
+      // Soft vintage organ chord strum every 2 beats
+      if (step % 4 === 0) {
+        for (const freq of track.chords[cIdx]) {
+          const cOsc = this.ctx.createOscillator()
+          const cg = this.ctx.createGain()
+          cOsc.type = 'sine'
+          cOsc.frequency.setValueAtTime(freq, now)
+          cg.gain.setValueAtTime(0.001, now)
+          cg.gain.linearRampToValueAtTime(0.075, now + 0.04)
+          cg.gain.exponentialRampToValueAtTime(0.001, now + 0.9)
+          cOsc.connect(cg)
+          cg.connect(this.radioGain)
+          cOsc.start(now)
+          cOsc.stop(now + 0.95)
+        }
+      }
+
+      // Gentle 80s cassette hi-hat / snare brush rhythm
+      if (this.noiseBuffer && (step % 2 === 1 || step % 4 === 2)) {
+        const src = this.ctx.createBufferSource()
+        src.buffer = this.noiseBuffer
+        const filt = this.ctx.createBiquadFilter()
+        filt.type = 'highpass'
+        filt.frequency.value = step % 4 === 2 ? 1400 : 4800
+        const ng = this.ctx.createGain()
+        ng.gain.setValueAtTime(step % 4 === 2 ? 0.07 : 0.028, now)
+        ng.gain.exponentialRampToValueAtTime(0.001, now + (step % 4 === 2 ? 0.11 : 0.045))
+        src.connect(filt)
+        filt.connect(ng)
+        ng.connect(this.radioGain)
+        src.start(now)
+        src.stop(now + 0.13)
+      }
+    }
+
+    tickNote()
+    this.radioTimer = window.setInterval(tickNote, stepMs)
+  }
+
+  stopCassette() {
+    this.radioPlaying = false
+    if (this.radioTimer !== undefined) {
+      window.clearInterval(this.radioTimer)
+      this.radioTimer = undefined
     }
   }
 

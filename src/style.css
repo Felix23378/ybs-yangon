@@ -74,12 +74,22 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
 #mapToggle.active, #musicBtn.active { border-color: var(--accent); background: #263145ee; }
 #musicBtn.playing { color: var(--accent); box-shadow: 0 0 12px #ffbe4f66; }
 
-/* 1980s YouTube Bus Radio */
+/* 1980s Myanmar Bus Radio (Instant Cassette + YouTube) */
 .radio {
   position: absolute;
   top: calc(max(12px, env(safe-area-inset-top)) + 68px);
   right: max(12px, env(safe-area-inset-right));
-  width: 256px; padding: 7px; z-index: 10; pointer-events: auto; touch-action: auto;
+  width: 262px; padding: 7px; z-index: 10; pointer-events: auto; touch-action: auto;
+}
+.radio-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px;
+}
+.radio-tabs button {
+  background: #ffffff14; border: 1px solid #ffffff22; border-radius: 6px;
+  padding: 4px 6px; font-size: 11px; color: var(--muted);
+}
+.radio-tabs button.active {
+  background: var(--accent); color: var(--ink); border-color: var(--accent);
 }
 .radio-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
@@ -101,8 +111,8 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
   border-radius: 6px; overflow: hidden; background: #000; touch-action: auto;
 }
 .radio-frame iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: auto; }
-.radio.mini { width: 210px; }
-.radio.mini .radio-hint { display: none; }
+.radio.mini { width: 220px; }
+.radio.mini .radio-tabs, .radio.mini .radio-hint { display: none; }
 .radio.mini .radio-frame {
   position: absolute; width: 2px; height: 2px; margin: 0; opacity: 0.01; pointer-events: none;
 }

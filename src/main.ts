@@ -28,6 +28,8 @@ const radioEl = el('radio')
 const radioTrackEl = el('radioTrack')
 const radioHintEl = el('radioHint')
 const radioFrameWrap = el('radioFrameWrap')
+const tabCassette = el<HTMLButtonElement>('tabCassette')
+const tabYoutube = el<HTMLButtonElement>('tabYoutube')
 const radioPlay = el<HTMLButtonElement>('radioPlay')
 const radioNext = el<HTMLButtonElement>('radioNext')
 const radioMin = el<HTMLButtonElement>('radioMin')
@@ -45,21 +47,21 @@ const songs1980s = [
   { id: 'suOJjYp12vE', title: 'စိုင်းထီးဆိုင် · လက်ရွေးစင်သီချင်းများ' },
 ] as const
 
+let radioMode: 'cassette' | 'youtube' = 'cassette'
 let radioIndex = 0
 let radioOpen = false
 let radioMini = false
 let radioIframe: HTMLIFrameElement | undefined
 let radioState = -1
-let autoplayCheckTimer: number | undefined
 
-function setRadioHint(songId: string, msg: string) {
+function setRadioHint(msg: string, ytId?: string) {
   radioHintEl.textContent = msg
-  if (msg) {
+  if (ytId) {
     const link = document.createElement('a')
-    link.href = 'https://www.youtube.com/watch?v=' + songId
+    link.href = 'https://www.youtube.com/watch?v=' + ytId
     link.target = '_blank'
     link.rel = 'noopener noreferrer'
-    link.textContent = 'YouTube ↗'
+    link.textContent = 'YouTube တွင်ဖွင့်ရန် ↗'
     radioHintEl.append(link)
   }
 }
@@ -70,8 +72,31 @@ function sendYtCommand(func: string, args: unknown[] = []) {
   win.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 }
 
-function loadRadioTrack(index: number) {
-  window.clearTimeout(autoplayCheckTimer)
+function syncRadioTabs() {
+  tabCassette.classList.toggle('active', radioMode === 'cassette')
+  tabYoutube.classList.toggle('active', radioMode === 'youtube')
+  radioFrameWrap.hidden = radioMode !== 'youtube'
+}
+
+function playCassetteTrack(index: number) {
+  radioMode = 'cassette'
+  radioOpen = true
+  radioIframe = undefined
+  radioFrameWrap.replaceChildren()
+  syncRadioTabs()
+  sound.startCassette(index)
+  const track = sound.cassetteTracks[sound.radioTrackIndex]
+  radioTrackEl.textContent = '📼 ' + track.title
+  radioEl.hidden = false
+  radioEl.classList.toggle('mini', radioMini)
+  radioPlay.textContent = '⏸'
+  musicBtn.classList.add('active', 'playing')
+  setRadioHint('♫ ဖွင့်နေသည် · ⏭ နှိပ်၍ သီချင်းပြောင်းနိုင်သည်')
+}
+
+function loadYoutubeTrack(index: number) {
+  radioMode = 'youtube'
+  sound.stopCassette()
   radioIndex = (index + songs1980s.length) % songs1980s.length
   const song = songs1980s[radioIndex]
   radioTrackEl.textContent = '📻 ' + song.title
@@ -80,13 +105,13 @@ function loadRadioTrack(index: number) {
   radioPlay.textContent = '▶'
   radioEl.hidden = false
   radioEl.classList.toggle('mini', radioMini)
+  syncRadioTabs()
   musicBtn.classList.add('active', 'playing')
-  setRadioHint(song.id, 'သီချင်းတင်နေသည်… ·')
+  setRadioHint('ဗီဒီယို ▶ နှိပ်၍ဖွင့်ပါ · ', song.id)
 
   const iframe = document.createElement('iframe')
   iframe.referrerPolicy = 'strict-origin-when-cross-origin'
-  const originParam = location.origin.startsWith('http') ? '&origin=' + encodeURIComponent(location.origin) : ''
-  iframe.src = `https://www.youtube.com/embed/${song.id}?enablejsapi=1&autoplay=1&playsinline=1&controls=1&rel=0${originParam}`
+  iframe.src = `https://www.youtube.com/embed/${song.id}?enablejsapi=1&autoplay=1&playsinline=1&controls=1&rel=0`
   iframe.title = song.title
   iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
   iframe.addEventListener('load', () => {
@@ -94,11 +119,6 @@ function loadRadioTrack(index: number) {
     iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1 }), '*')
     sendYtCommand('unMute')
     sendYtCommand('playVideo')
-    autoplayCheckTimer = window.setTimeout(() => {
-      if (radioOpen && radioIframe === iframe && radioState !== 1 && radioState !== 3) {
-        setRadioHint(song.id, 'ဖွင့်ရန် ဗီဒီယို ▶ ကိုနှိပ်ပါ ·')
-      }
-    }, 1800)
   })
 
   radioIframe = iframe
@@ -106,7 +126,7 @@ function loadRadioTrack(index: number) {
 }
 
 function stopRadio() {
-  window.clearTimeout(autoplayCheckTimer)
+  sound.stopCassette()
   radioOpen = false
   radioMini = false
   radioState = -1
@@ -119,9 +139,8 @@ function stopRadio() {
   musicBtn.classList.remove('active', 'playing')
 }
 
-// Listen to YouTube player state updates (playing, paused, ended -> next track)
 window.addEventListener('message', event => {
-  if (!radioOpen || typeof event.data !== 'string') return
+  if (!radioOpen || radioMode !== 'youtube' || typeof event.data !== 'string') return
   if (!event.origin.includes('youtube.com') && !event.origin.includes('youtube-nocookie.com')) return
   try {
     const data = JSON.parse(event.data) as { event?: string; info?: { playerState?: number } }
@@ -130,18 +149,15 @@ window.addEventListener('message', event => {
       if (radioState === 1) {
         radioPlay.textContent = '⏸'
         musicBtn.classList.add('playing')
-        radioHintEl.textContent = ''
+        setRadioHint('♫ YouTube ဖွင့်နေသည် · ', songs1980s[radioIndex].id)
       } else if (radioState === 2) {
         radioPlay.textContent = '▶'
         musicBtn.classList.remove('playing')
       } else if (radioState === 0) {
-        loadRadioTrack(radioIndex + 1)
+        loadYoutubeTrack(radioIndex + 1)
       }
     } else if (data.event === 'onError') {
-      setRadioHint(songs1980s[radioIndex].id, 'နောက်တစ်ပုဒ်ပြောင်းနေသည်… ·')
-      window.setTimeout(() => {
-        if (radioOpen) loadRadioTrack(radioIndex + 1)
-      }, 900)
+      loadYoutubeTrack(radioIndex + 1)
     }
   } catch {}
 })
@@ -425,7 +441,8 @@ musicBtn.addEventListener('click', () => {
   if (!radioOpen) {
     radioMini = false
     radioMin.textContent = '−'
-    loadRadioTrack(radioIndex)
+    if (radioMode === 'youtube') loadYoutubeTrack(radioIndex)
+    else playCassetteTrack(sound.radioTrackIndex)
   } else {
     radioMini = !radioMini
     radioEl.classList.toggle('mini', radioMini)
@@ -433,9 +450,26 @@ musicBtn.addEventListener('click', () => {
   }
   musicBtn.blur()
 })
+tabCassette.addEventListener('click', () => {
+  playCassetteTrack(sound.radioTrackIndex)
+  tabCassette.blur()
+})
+tabYoutube.addEventListener('click', () => {
+  loadYoutubeTrack(radioIndex)
+  tabYoutube.blur()
+})
 radioPlay.addEventListener('click', () => {
-  if (!radioIframe) {
-    loadRadioTrack(radioIndex)
+  if (radioMode === 'cassette') {
+    if (sound.radioPlaying) {
+      sound.stopCassette()
+      radioPlay.textContent = '▶'
+      musicBtn.classList.remove('playing')
+      setRadioHint('ခဏရပ်ထားသည် · ▶ နှိပ်၍ ပြန်ဖွင့်ပါ')
+    } else {
+      playCassetteTrack(sound.radioTrackIndex)
+    }
+  } else if (!radioIframe) {
+    loadYoutubeTrack(radioIndex)
   } else if (radioState === 1) {
     sendYtCommand('pauseVideo')
     radioState = 2
@@ -450,7 +484,8 @@ radioPlay.addEventListener('click', () => {
   radioPlay.blur()
 })
 radioNext.addEventListener('click', () => {
-  loadRadioTrack(radioIndex + 1)
+  if (radioMode === 'cassette') playCassetteTrack(sound.radioTrackIndex + 1)
+  else loadYoutubeTrack(radioIndex + 1)
   radioNext.blur()
 })
 radioMin.addEventListener('click', () => {
