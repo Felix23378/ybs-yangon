@@ -1,0 +1,705 @@
+import * as T from 'three'
+import { crosswalks, myaynigone } from './route'
+import { busHalfLength, curb, type Drive, type Stop, type Vehicle } from './drive'
+
+const material = (color: number, roughness = 0.88) => new T.MeshStandardMaterial({ color, roughness })
+const asphalt = material(0x494c48)
+const concrete = material(0xb7a488)
+const white = material(0xffeed1)
+const yellow = material(0xffd05b)
+const glass = material(0x273e43, 0.35)
+const black = material(0x232b27)
+const rubber = material(0x1b201e, 0.92)
+const red = material(0xc84732)
+const hazardGlow = new T.MeshBasicMaterial({ color: 0xffb830 })
+const silver = new T.MeshStandardMaterial({ color: 0xb7c2bc, roughness: 0.35, metalness: 0.55 })
+const greenery = [material(0x597347), material(0x738a4b)]
+const box = new T.BoxGeometry(1, 1, 1)
+
+// Shared wheel geometries across all traffic vehicles for fast startup
+const busWheelGeo = new T.CylinderGeometry(0.49, 0.49, 0.29, 12)
+const busHubGeo = new T.CylinderGeometry(0.24, 0.24, 0.32, 10)
+const carWheelGeo = new T.CylinderGeometry(0.36, 0.36, 0.26, 12)
+const carHubGeo = new T.CylinderGeometry(0.18, 0.18, 0.29, 10)
+const headGeo = new T.SphereGeometry(0.16, 8, 6)
+const umbrellaGeo = new T.ConeGeometry(0.62, 0.24, 10)
+const shirtMats = [0x5586a2, 0xf3d57d, 0x904b57, 0x4b9469, 0xe88b5a, 0xeae4d3, 0x7b5d8f].map(c => material(c))
+const longyiMats = [0x263f4a, 0x6b2f38, 0x2c4a38, 0x4a3b2c, 0x222926].map(c => material(c))
+const umbrellaMats = [0xd14b4b, 0x3b7ca8, 0xe0a83a, 0x4c8a66].map(c => material(c, 0.65))
+const skinMat = material(0xa87755)
+const hairMat = material(0x1b1a19)
+
+interface AnimatedNpc {
+  group: T.Group
+  leftLeg: T.Mesh
+  rightLeg: T.Mesh
+  leftArm: T.Mesh
+  rightArm: T.Mesh
+  phase: number
+}
+
+function createNpc(seed: number, withUmbrella = false): AnimatedNpc {
+  const group = new T.Group()
+  const shirt = shirtMats[seed % shirtMats.length]
+  const longyi = longyiMats[(seed * 3) % longyiMats.length]
+
+  // Legs (animated stride)
+  const leftLeg = block(group, longyi, -0.09, 0.36, 0, 0.15, 0.66, 0.18)
+  const rightLeg = block(group, longyi, 0.09, 0.36, 0, 0.15, 0.66, 0.18)
+  // Torso
+  block(group, shirt, 0, 0.98, 0, 0.42, 0.62, 0.24)
+  // Arms
+  const leftArm = block(group, shirt, -0.27, 0.96, 0, 0.11, 0.48, 0.12)
+  const rightArm = block(group, shirt, 0.27, 0.96, 0, 0.11, 0.48, 0.12)
+  // Head & hair
+  const head = new T.Mesh(headGeo, skinMat)
+  head.position.y = 1.44
+  group.add(head)
+  block(group, hairMat, 0, 1.54, 0, 0.27, 0.12, 0.27)
+
+  if (withUmbrella) {
+    // Classic Yangon daytime sun umbrella held in right hand
+    block(group, black, 0.28, 1.48, 0.04, 0.03, 0.96, 0.03)
+    const canopy = new T.Mesh(umbrellaGeo, umbrellaMats[seed % umbrellaMats.length])
+    canopy.position.set(0.28, 1.98, 0.04)
+    group.add(canopy)
+  }
+
+  return { group, leftLeg, rightLeg, leftArm, rightArm, phase: seed * 1.7 }
+}
+
+function animateWalk(npc: AnimatedNpc, t: number, speedScale: number) {
+  const swing = Math.sin(t * speedScale + npc.phase) * 0.48
+  npc.leftLeg.rotation.x = swing
+  npc.rightLeg.rotation.x = -swing
+  npc.leftArm.rotation.x = -swing * 0.75
+  npc.rightArm.rotation.x = swing * 0.75
+}
+
+function block(parent: T.Object3D, mat: T.Material, x: number, y: number, z: number, w: number, h: number, d: number) {
+  const mesh = new T.Mesh(box, mat)
+  mesh.position.set(x, y, z)
+  mesh.scale.set(w, h, d)
+  parent.add(mesh)
+  return mesh
+}
+
+function mirrorPlane(w: number, h: number, texture: T.Texture) {
+  const geo = new T.PlaneGeometry(w, h)
+  // Flip horizontal UVs so the reflection acts like a real mirror (left stays left)
+  const uv = geo.attributes.uv
+  for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i))
+  return new T.Mesh(geo, new T.MeshBasicMaterial({ map: texture }))
+}
+
+function plaque(parent: T.Object3D, lines: string[], x: number, y: number, z: number, w: number, h: number, bg = '#1d3128', fg = '#ffe282') {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 160
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, 512, 160)
+  ctx.fillStyle = fg
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (const [i, line] of lines.entries()) {
+    ctx.font = 'bold ' + (lines.length > 1 ? 46 : 92) + 'px Arial, sans-serif'
+    ctx.fillText(line, 256, lines.length > 1 ? 49 + i * 66 : 82, 475)
+  }
+  const texture = new T.CanvasTexture(canvas)
+  texture.colorSpace = T.SRGBColorSpace
+  const mesh = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: texture, side: T.DoubleSide }))
+  mesh.position.set(x, y, z)
+  parent.add(mesh)
+  return mesh
+}
+
+function busColor(line: number) {
+  if (line === 37) return 0xf7bc20 // YBS 37 yellow
+  if (line === 61) return 0x3b8c85 // YBS 61 teal-green
+  if (line === 21) return 0xd64e36 // YBS 21 vermilion red
+  if (line === 36) return 0x366aa8 // YBS 36 blue
+  return 0x5d8d5e
+}
+
+const carPalette = [0xb94e3c, 0xded9ca, 0x4b7790, 0x3e5246, 0x8f7c66, 0x616c73]
+
+interface TrafficVisual {
+  model: T.Group
+  hazards: T.Group
+}
+
+function vehicleMesh(v: Vehicle): TrafficVisual {
+  const model = new T.Group()
+  const hazards = new T.Group()
+  hazards.visible = false
+  model.add(hazards)
+
+  if (v.kind === 'bus') {
+    const body = material(busColor(v.line), 0.72)
+    const end = busHalfLength
+    block(model, body, 0, 1.48, 0, 2.52, 2.66, end * 2)
+    block(model, body, 0, 2.9, 0, 2.45, 0.21, end * 2 - 0.14)
+    block(model, white, 0, 3.01, -0.55, 1.35, 0.16, 2.4)
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 5; i++) {
+        block(model, glass, side * 1.266, 2.07, -4.0 + i * 1.69, 0.025, 0.93, 1.55)
+      }
+      block(model, black, side * 1.267, 1.02, -3.27, 0.03, 1.84, 1.12)
+      block(model, glass, side * 1.286, 1.51, -3.27, 0.02, 0.93, 0.91)
+      block(model, red, side * 0.98, 0.95, end + 0.02, 0.23, 0.22, 0.07)
+      block(hazards, hazardGlow, side * 1.05, 1.22, end + 0.04, 0.34, 0.24, 0.08)
+      block(model, white, side * 0.87, 0.86, -end - 0.02, 0.37, 0.2, 0.07)
+    }
+    block(model, black, 0, 0.51, end + 0.04, 2.48, 0.22, 0.17)
+    block(model, glass, 0, 2.07, end + 0.01, 2.17, 0.91, 0.03)
+    block(model, glass, 0, 2.1, -end - 0.01, 2.19, 1.06, 0.03)
+    plaque(model, ['YBS ' + v.line], 0, 2.09, end + 0.038, 1.25, 0.38)
+    plaque(model, ['YBS ' + v.line], 0, 2.41, -end - 0.038, 1.25, 0.38).rotation.y = Math.PI
+    plaque(model, ['ရန်ကုန်'], 0, 0.88, end + 0.03, 0.67, 0.21)
+  } else if (v.kind === 'van') {
+    const body = material([0xece7da, 0x738a94, 0xc9b595][v.id % 3], 0.78)
+    block(model, body, 0, 1.08, 0, 2.05, 1.68, 5.4)
+    block(model, glass, 0, 1.48, -2.71, 1.75, 0.68, 0.04)
+    block(model, glass, 0, 1.48, 2.71, 1.75, 0.62, 0.04)
+    for (const side of [-1, 1]) {
+      block(model, glass, side * 1.03, 1.48, -1.35, 0.03, 0.65, 1.6)
+      block(model, red, side * 0.78, 0.72, 2.72, 0.24, 0.2, 0.05)
+      block(hazards, hazardGlow, side * 0.82, 0.94, 2.75, 0.3, 0.2, 0.06)
+      block(model, white, side * 0.78, 0.72, -2.72, 0.26, 0.18, 0.05)
+    }
+  } else {
+    const isTaxi = v.kind === 'taxi'
+    const body = material(isTaxi ? 0xf5f2e6 : carPalette[v.id % carPalette.length], 0.7)
+    block(model, body, 0, 0.66, 0, 1.9, 0.78, 4.5)
+    block(model, glass, 0, 1.14, 0.12, 1.58, 0.66, 2.5)
+    block(model, body, 0, 1.5, 0.12, 1.61, 0.16, 2.36)
+    if (isTaxi) {
+      block(model, red, 0, 1.67, -0.05, 0.56, 0.18, 0.22)
+      block(model, yellow, 0, 1.67, -0.05, 0.44, 0.11, 0.24)
+    }
+    for (const side of [-1, 1]) {
+      block(model, red, side * 0.72, 0.72, 2.26, 0.28, 0.16, 0.05)
+      block(hazards, hazardGlow, side * 0.75, 0.88, 2.29, 0.32, 0.18, 0.06)
+      block(model, white, side * 0.72, 0.72, -2.26, 0.28, 0.16, 0.05)
+    }
+  }
+
+  const isBus = v.kind === 'bus'
+  const radius = isBus ? 0.49 : 0.36
+  const wGeo = isBus ? busWheelGeo : carWheelGeo
+  const hGeo = isBus ? busHubGeo : carHubGeo
+  for (const x of isBus ? [-1.18, 1.18] : [-0.88, 0.88]) {
+    for (const z of isBus ? [-3.2, 3.05] : v.kind === 'van' ? [-1.7, 1.7] : [-1.42, 1.42]) {
+      for (const [geo, mat] of [[wGeo, rubber], [hGeo, concrete]] as const) {
+        const mesh = new T.Mesh(geo, mat)
+        mesh.position.set(x, radius, z)
+        mesh.rotation.z = Math.PI / 2
+        model.add(mesh)
+      }
+    }
+  }
+  return { model, hazards }
+}
+
+function createCockpit(rearTex: T.Texture, leftMirrorTex: T.Texture, rightMirrorTex: T.Texture) {
+  const cab = new T.Group()
+  const paint = material(0xf7bc20, 0.7)
+  const dashMat = material(0x28312d, 0.85)
+  const trimMat = material(0x3a4540, 0.75)
+  const rimMat = new T.MeshStandardMaterial({ color: 0x202523, roughness: 0.65, metalness: 0.15 })
+
+  // Warm interior cab light so steering wheel, dash, and fare box are crisp
+  const cabLight = new T.PointLight(0xfff1d2, 2.4, 5.5)
+  cabLight.position.set(-0.1, 2.65, -4.0)
+  cab.add(cabLight)
+
+  // Headlight flash beam on front bumper when honking
+  const flashLight = new T.PointLight(0xfff2b0, 0, 55)
+  flashLight.position.set(0, 1.35, -6.2)
+  cab.add(flashLight)
+
+  // Windshield A-pillars, cab sides, and LIVE exterior wing mirrors
+  for (const side of [-1, 1]) {
+    block(cab, paint, side * 1.26, 2.42, -5.18, 0.12, 1.42, 0.14)
+    block(cab, trimMat, side * 1.21, 2.42, -5.12, 0.06, 1.4, 0.08)
+    block(cab, dashMat, side * 1.26, 1.64, -4.45, 0.1, 1.22, 1.68)
+
+    // Exterior side mirror arm + housing angled toward driver with LIVE rear-side reflection
+    block(cab, black, side * 1.34, 2.46, -5.14, 0.22, 0.04, 0.04)
+    const mirrorGroup = new T.Group()
+    mirrorGroup.position.set(side * 1.38, 2.32, -5.06)
+    mirrorGroup.rotation.y = side < 0 ? 0.36 : -0.46
+    block(mirrorGroup, black, 0, 0, -0.025, 0.24, 0.38, 0.045)
+    const face = mirrorPlane(0.205, 0.34, side < 0 ? leftMirrorTex : rightMirrorTex)
+    face.position.z = 0.002
+    mirrorGroup.add(face)
+    cab.add(mirrorGroup)
+  }
+
+  // Roof header brow & sun visor (raised so tall driver eye at y=2.38 has wide open sky & road)
+  block(cab, paint, 0, 3.06, -5.12, 2.64, 0.24, 0.38)
+  block(cab, trimMat, 0, 2.96, -4.98, 2.5, 0.12, 0.28)
+  block(cab, black, -0.58, 2.86, -4.94, 0.68, 0.11, 0.03)
+
+  // Wide panoramic LIVE rear-view mirror at top-center of windshield
+  const rearMirror = new T.Group()
+  rearMirror.position.set(0.02, 2.78, -4.7)
+  rearMirror.rotation.y = -0.14
+  rearMirror.rotation.x = 0.12
+  block(rearMirror, black, 0, 0.12, -0.04, 0.045, 0.22, 0.045) // stalk
+  block(rearMirror, black, 0, 0, -0.028, 0.68, 0.22, 0.045) // bezel
+  const rearFace = mirrorPlane(0.64, 0.185, rearTex)
+  rearFace.position.z = 0.002
+  rearMirror.add(rearFace)
+  cab.add(rearMirror)
+
+  // Dashboard positioned LOW below driver eye (y=1.88 top vs eye y=2.38 -> looking DOWN over dash)
+  block(cab, dashMat, 0, 1.64, -4.88, 2.52, 0.46, 0.72)
+  block(cab, trimMat, 0, 1.87, -4.98, 2.52, 0.055, 0.54)
+  // Instrument cluster hood behind the steering wheel
+  block(cab, trimMat, -0.44, 1.94, -4.9, 0.62, 0.16, 0.32)
+  block(cab, black, -0.44, 1.93, -4.75, 0.54, 0.13, 0.04)
+
+  // Live canvas dashboard speedometer + RPM + horn/door status lamp
+  const dashCanvas = document.createElement('canvas')
+  dashCanvas.width = 256
+  dashCanvas.height = 96
+  const dashCtx = dashCanvas.getContext('2d')!
+  const dashTex = new T.CanvasTexture(dashCanvas)
+  dashTex.colorSpace = T.SRGBColorSpace
+  const dashPanel = new T.Mesh(
+    new T.PlaneGeometry(0.5, 0.15),
+    new T.MeshBasicMaterial({ map: dashTex })
+  )
+  dashPanel.position.set(-0.44, 1.935, -4.725)
+  dashPanel.rotation.x = -0.34
+  cab.add(dashPanel)
+
+  // Center console switches & red hazard button
+  block(cab, black, 0.08, 1.89, -4.82, 0.34, 0.11, 0.2)
+  block(cab, red, 0.0, 1.93, -4.73, 0.045, 0.03, 0.03)
+  block(cab, yellow, 0.08, 1.93, -4.73, 0.045, 0.03, 0.03)
+  block(cab, silver, 0.16, 1.93, -4.73, 0.045, 0.03, 0.03)
+
+  // Iconic YBS yellow fare box to the right of the driver (kept low so right road stays clear)
+  block(cab, paint, 0.46, 1.76, -4.78, 0.28, 0.42, 0.28)
+  block(cab, black, 0.46, 1.98, -4.78, 0.22, 0.03, 0.2)
+  plaque(cab, ['500 ကျပ်'], 0.46, 1.9, -4.635, 0.22, 0.09, '#182820', '#ffcf58')
+
+  // Windshield wipers resting on lower glass
+  for (const x of [-0.5, 0.45]) {
+    const wiper = block(cab, black, x, 1.92, -5.19, 0.56, 0.024, 0.024)
+    wiper.rotation.z = 0.07
+  }
+
+  // Steering column & authentic flatter city-bus steering wheel well BELOW driver's eye line
+  const column = new T.Mesh(new T.CylinderGeometry(0.045, 0.055, 0.46, 10), trimMat)
+  column.position.set(-0.44, 1.72, -4.66)
+  column.rotation.x = Math.PI / 2 - 0.78
+  cab.add(column)
+
+  const wheel = new T.Group()
+  wheel.position.set(-0.44, 1.86, -4.56)
+  wheel.rotation.x = -0.78 // Realistic flatter bus steering wheel angle
+  const rim = new T.Mesh(new T.TorusGeometry(0.215, 0.024, 12, 32), rimMat)
+  wheel.add(rim)
+  const topMark = block(wheel, paint, 0, 0.215, 0, 0.05, 0.052, 0.052)
+  topMark.renderOrder = 1
+  const hub = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, 0.044, 16), trimMat)
+  hub.rotation.x = Math.PI / 2
+  wheel.add(hub)
+  const badge = new T.Mesh(new T.CylinderGeometry(0.034, 0.034, 0.05, 12), paint)
+  badge.rotation.x = Math.PI / 2
+  wheel.add(badge)
+  block(wheel, silver, 0, -0.115, 0, 0.044, 0.175, 0.024)
+  block(wheel, silver, -0.11, 0.015, 0, 0.175, 0.038, 0.024)
+  block(wheel, silver, 0.11, 0.015, 0, 0.175, 0.038, 0.024)
+  cab.add(wheel)
+
+  let lastDashDraw = -1
+  const updateDash = (speedMps: number, boarding: boolean, honking: boolean) => {
+    const kmh = Math.round(speedMps * 3.6)
+    const key = kmh * 4 + (boarding ? 2 : 0) + (honking ? 1 : 0)
+    if (key === lastDashDraw) return
+    lastDashDraw = key
+    const ctx = dashCtx
+    ctx.fillStyle = '#0e1713'
+    ctx.fillRect(0, 0, 256, 96)
+
+    const cx = 62, cy = 54, r = 34
+    ctx.strokeStyle = '#2d473a'
+    ctx.lineWidth = 6
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, Math.PI * 0.78, Math.PI * 2.22)
+    ctx.stroke()
+
+    const frac = Math.min(1, kmh / 130)
+    ctx.strokeStyle = kmh >= 85 ? '#ff6a45' : '#ffcf58'
+    ctx.lineWidth = 6
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, Math.PI * 0.78, Math.PI * (0.78 + frac * 1.44))
+    ctx.stroke()
+
+    const ang = Math.PI * (0.78 + frac * 1.44)
+    ctx.strokeStyle = '#ff5436'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.lineTo(cx + Math.cos(ang) * (r - 6), cy + Math.sin(ang) * (r - 6))
+    ctx.stroke()
+
+    ctx.fillStyle = '#fff4d6'
+    ctx.font = 'bold 20px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText(String(kmh).padStart(2, '0'), cx, cy + 12)
+
+    ctx.fillStyle = '#ffcf58'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.fillText('YBS 37', 184, 28)
+    ctx.fillStyle = honking ? '#ffb830' : boarding ? '#5df094' : '#95b0a0'
+    ctx.font = 'bold 13px "Noto Sans Myanmar", sans-serif'
+    ctx.fillText(honking ? 'ဟွန်းတီးနေ' : boarding ? 'တက်နေသည်' : 'မောင်းနေသည်', 184, 52)
+
+    const rpm = Math.min(1, (kmh % 35) / 35 * 0.7 + frac * 0.45)
+    ctx.fillStyle = '#24362d'
+    ctx.fillRect(132, 68, 104, 12)
+    ctx.fillStyle = rpm > 0.8 ? '#ff6a45' : '#5df094'
+    ctx.fillRect(132, 68, Math.round(104 * rpm), 12)
+
+    dashTex.needsUpdate = true
+  }
+  updateDash(0, false, false)
+
+  return { cab, wheel, flashLight, updateDash }
+}
+
+interface StopCrowd {
+  stop: Stop
+  people: T.Group[]
+}
+
+export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
+  const scene = new T.Scene()
+  scene.background = new T.Color(0xbad7d5)
+  scene.fog = new T.FogExp2(0xbad7d5, 0.0075)
+  scene.add(new T.HemisphereLight(0xfff3d6, 0x697b60, 2.5))
+  const sun = new T.DirectionalLight(0xffe2a7, 2.2)
+  sun.position.set(-20, 30, 12)
+  scene.add(sun)
+
+  const camera = new T.PerspectiveCamera(68, 1, 0.1, 460)
+  const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
+  renderer.outputColorSpace = T.SRGBColorSpace
+  renderer.toneMapping = T.ACESFilmicToneMapping
+  host.append(renderer.domElement)
+
+  let baseFov = 68
+  const resize = () => {
+    const { clientWidth: w, clientHeight: h } = host
+    renderer.setSize(w, h)
+    camera.aspect = w / Math.max(1, h)
+    // Wider FOV on narrow portrait phones so steering wheel, mirrors, and road all fit cleanly
+    baseFov = camera.aspect < 0.75 ? 84 : w < h ? 78 : 68
+    camera.fov = baseFov
+    camera.updateProjectionMatrix()
+  }
+  new ResizeObserver(resize).observe(host)
+  resize()
+
+  // Live rear-view & side wing mirror render targets + cameras
+  const rearTarget = new T.WebGLRenderTarget(384, 128)
+  const leftMirrorTarget = new T.WebGLRenderTarget(144, 216)
+  const rightMirrorTarget = new T.WebGLRenderTarget(144, 216)
+  const rearCam = new T.PerspectiveCamera(60, 384 / 128, 0.4, 210)
+  const leftMirrorCam = new T.PerspectiveCamera(56, 144 / 216, 0.4, 190)
+  const rightMirrorCam = new T.PerspectiveCamera(56, 144 / 216, 0.4, 190)
+
+  const length = drive.terminal.distance + 180
+  block(scene, material(0x7e945e), 0, -0.26, -length / 2 + 30, 250, 0.3, length + 90)
+  block(scene, asphalt, 0, -0.07, -length / 2 + 30, 16.1, 0.12, length + 90)
+  for (const x of [-9.4, 9.4]) block(scene, concrete, x, -0.01, -length / 2 + 30, 2.7, 0.22, length + 90)
+  for (const x of [-7.85, -0.13, 0.13, 7.85]) {
+    block(scene, Math.abs(x) < 1 ? yellow : white, x, 0.013, -length / 2 + 30, 0.13, 0.018, length + 90)
+  }
+
+  const stripCount = Math.ceil((length + 45) / 9)
+  const marks = new T.InstancedMesh(box, white, stripCount * 2)
+  const marker = new T.Object3D()
+  for (let i = 0; i < stripCount; i++) {
+    for (const side of [-1, 1]) {
+      marker.position.set(side * 4.1, 0.016, 33 - i * 9)
+      marker.scale.set(0.13, 0.018, 3.6)
+      marker.updateMatrix()
+      marks.setMatrixAt(i * 2 + Number(side > 0), marker.matrix)
+    }
+  }
+  scene.add(marks)
+
+  const crowds: StopCrowd[] = []
+
+  // Painted zebra crosswalks + roadside warning signs
+  for (const dist of crosswalks) {
+    const z = -dist
+    for (let x = -7.0; x <= 7.0; x += 1.4) {
+      block(scene, white, x, 0.02, z, 0.65, 0.018, 4.4)
+    }
+    block(scene, yellow, 8.35, 1.8, z + 5.5, 0.13, 3.6, 0.13)
+    plaque(scene, ['CROSSING', 'လူကူးမျဉ်းကျား'], 7.65, 3.3, z + 5.6, 2.3, 0.76, '#ffcf58', '#182820')
+  }
+
+  // Active crosswalk NPCs (from drive.pedestrians)
+  const crossNpcs = drive.pedestrians.map(ped => {
+    const npc = createNpc(ped.colorIndex, ped.hasUmbrella)
+    npc.group.position.set(ped.x, 0.06, -ped.distance)
+    scene.add(npc.group)
+    return { ped, npc }
+  })
+
+  // Recycled sidewalk walking NPCs along both sides of Pyay Road
+  interface SidewalkNpc {
+    npc: AnimatedNpc
+    side: number
+    laneOffset: number
+    dir: number
+    speed: number
+    zPos: number
+  }
+  const sidewalkNpcs: SidewalkNpc[] = []
+  for (let i = 0; i < 36; i++) {
+    const side = i % 2 === 0 ? 1 : -1
+    const npc = createNpc(i + 11, i % 4 === 0)
+    const laneOffset = side * (8.65 + (i % 3) * 0.48)
+    const dir = i % 3 === 0 ? -1 : 1
+    const speed = 1.2 + (i % 5) * 0.22
+    const zPos = -(i * 9 - 25)
+    npc.group.position.set(laneOffset, 0.09, zPos)
+    npc.group.rotation.y = dir > 0 ? Math.PI : 0
+    scene.add(npc.group)
+    sidewalkNpcs.push({ npc, side, laneOffset, dir, speed, zPos })
+  }
+
+  for (const stop of [start, ...drive.stops]) {
+    const z = -stop.distance
+    block(scene, material(0x5d6653), curb, 0.014, z, 3.3, 0.02, 28)
+    for (const x of [4.55, 7.75]) block(scene, yellow, x, 0.035, z, 0.15, 0.025, 28)
+    for (const dz of [-14, 14]) block(scene, yellow, curb, 0.035, z + dz, 3.3, 0.025, 0.18)
+    for (const dz of [-4, 4]) block(scene, black, 8.8, 1.25, z + dz, 0.15, 2.5, 0.14)
+    block(scene, material(0x43786d), 9, 2.55, z, 2.05, 0.18, 9)
+    block(scene, concrete, 9.38, 0.53, z, 0.72, 0.15, 4)
+    plaque(scene, [stop.burmese, stop.name], 9, 2.05, z + 4.2, 2.9, 0.88)
+
+    if (stop !== start) {
+      block(scene, yellow, 8.2, 2.5, z + 13.5, 0.16, 5.0, 0.16)
+      plaque(scene, [stop.terminal ? 'ဂိတ်ဆုံး' : 'မှတ်တိုင်', stop.burmese], 7.4, 4.45, z + 13.6, 2.7, 0.85, '#ffcf58', '#182820')
+    }
+
+    if (stop !== start && !stop.terminal) {
+      const people: T.Group[] = []
+      for (let i = 0; i < 9; i++) {
+        const npc = createNpc(i + Math.round(stop.distance / 100), i % 4 === 1)
+        const person = npc.group
+        const baseX = 8.42 + (i % 2) * 0.42
+        const baseZ = z - 3.6 + i * 0.84
+        person.position.set(baseX, 0.08, baseZ)
+        person.rotation.y = -Math.PI / 2 // Face the road waiting for the bus
+        person.userData.baseX = baseX
+        scene.add(person)
+        people.push(person)
+      }
+      crowds.push({ stop, people })
+    }
+  }
+
+  const walls = [0xebc59b, 0xe2d1b1, 0xcba39a, 0xa4b9a8, 0xf3dcb4].map(c => material(c))
+  const scenery = new T.Group()
+  scene.add(scenery)
+  const shadow = new T.Mesh(
+    new T.CircleGeometry(1, 24),
+    new T.MeshBasicMaterial({ color: 0x19231b, transparent: true, opacity: 0.27, depthWrite: false })
+  )
+  shadow.rotation.x = -Math.PI / 2
+  shadow.scale.set(1.6, 5.35, 1)
+  shadow.position.y = 0.025
+  scene.add(shadow)
+
+  for (let i = 0; i < 20; i++) {
+    for (const side of [-1, 1]) {
+      const group = new T.Group()
+      group.userData.segment = i
+      scenery.add(group)
+      const x = side * 18.3
+      const h = 4.7 + (i * 7 % 16) * 0.55
+      const d = 8 + i % 5
+      block(group, walls[(i + (side > 0 ? 2 : 0)) % walls.length], x, h / 2, -2, 10, h, d)
+      block(group, concrete, x, h + 0.12, -2, 10.4, 0.25, d + 0.4)
+      for (let storey = 1; storey < 3; storey++) {
+        for (let win = 0; win < 3; win++) {
+          block(group, glass, x - side * 5.05, h * storey / 3 + 0.42, -4.6 + win * 2.5, 0.08, 0.82, 1.18)
+        }
+      }
+      block(group, side > 0 ? red : greenery[0], x - side * 5.35, 2.1, -2, 1.28, 0.18, d)
+      block(group, material(0x745e42), side * 11.05, 1.2, 6.8, 0.35, 2.4, 0.36)
+      const canopy = new T.Mesh(new T.IcosahedronGeometry(1.66, 1), greenery[i % 2])
+      canopy.position.set(side * 11.05, 3.12, 6.8)
+      canopy.scale.set(1.2, 0.85, 1.25)
+      group.add(canopy)
+
+      // Shopkeepers / tea-shop locals chatting under the shopfront awning
+      if (i % 2 === 0) {
+        const local = createNpc(i * 3 + (side > 0 ? 1 : 5), false).group
+        local.position.set(side * 12.1, 0.08, -1.2)
+        local.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2
+        group.add(local)
+      }
+    }
+  }
+
+  for (const [name, burmese, distance] of [
+    ['Pyay Road', 'ပြည်လမ်း', 360],
+    ['Inya Lake', 'အင်းလျားကန်', 2050],
+    ['Downtown Yangon', 'ရန်ကုန်မြို့လယ်', 4160],
+  ] as const) {
+    block(scene, black, 9.55, 2.15, -distance, 0.13, 4.3, 0.13)
+    plaque(scene, [burmese, name], 9.55, 3.6, -distance + 0.09, 3.65, 1.25)
+  }
+
+  const terminalZ = -drive.terminal.distance
+  const office = material(0xdec4a0)
+  block(scene, office, 18.3, 8.4, terminalZ - 6, 10, 16.8, 25)
+  for (let floor = 0; floor < 6; floor++) {
+    block(scene, white, 18.25, 1.1 + floor * 2.65, terminalZ - 6, 10.45, 0.18, 25.3)
+    for (let win = 0; win < 7; win++) {
+      block(scene, glass, 13.27, 2.1 + floor * 2.65, terminalZ + 3 - win * 3, 0.08, 1.25, 1.44)
+    }
+  }
+  plaque(scene, ['ခြောက်ထပ်ရုံး', 'ဂိတ်ဆုံး'], 9, 4.4, terminalZ + 4.2, 3.65, 1.25)
+
+  const { cab: player, wheel, flashLight, updateDash } = createCockpit(
+    rearTarget.texture,
+    leftMirrorTarget.texture,
+    rightMirrorTarget.texture
+  )
+  scene.add(player)
+
+  const traffic = drive.vehicles.map(v => {
+    const vis = vehicleMesh(v)
+    scene.add(vis.model)
+    return vis
+  })
+
+  const frame = () => {
+    player.position.set(drive.lateral, 0, -drive.distance)
+    wheel.rotation.z = -drive.steer * 1.15
+    flashLight.intensity = drive.hornPulse * 28
+    updateDash(drive.speed, Boolean(drive.dwellingAt && drive.dwellingAt.waiting > 0), drive.hornActive)
+    shadow.position.x = drive.lateral
+    shadow.position.z = -drive.distance
+
+    const blink = Math.floor(performance.now() / 110) % 2 === 0
+    drive.vehicles.forEach((v, i) => {
+      const { model, hazards } = traffic[i]
+      const visible = Math.abs(v.distance - drive.distance) < 210
+      model.visible = visible
+      if (!visible) return
+      model.position.set(v.lane, 0, -v.distance)
+      const laneDiff = v.targetLane - v.lane
+      const turnAngle = Math.abs(laneDiff) > 0.05 ? -Math.sign(laneDiff) * 0.14 : 0
+      model.rotation.y = (v.baseCruiseSpeed < 0 ? Math.PI : 0) + turnAngle
+      hazards.visible = v.flashTimer > 0 && blink
+    })
+
+    const now = performance.now() * 0.008
+    const timeSec = performance.now() * 0.001
+
+    // Animate crosswalk pedestrians
+    for (const { ped, npc } of crossNpcs) {
+      const visible = Math.abs(ped.distance - drive.distance) < 190
+      npc.group.visible = visible
+      if (!visible) continue
+      npc.group.position.set(ped.x, 0.06, -ped.distance)
+      npc.group.rotation.y = ped.dir > 0 ? Math.PI / 2 : -Math.PI / 2
+      animateWalk(npc, timeSec, ped.hurrying ? 12.5 : 5.5)
+    }
+
+    // Animate & recycle sidewalk pedestrians smoothly around the bus
+    const busZ = -drive.distance
+    for (const s of sidewalkNpcs) {
+      if (drive.status === 'driving') {
+        s.zPos -= s.dir * s.speed * (1 / 60)
+      }
+      // Keep sidewalk walkers distributed from 170m ahead to 55m behind
+      while (s.zPos > busZ + 55) s.zPos -= 230
+      while (s.zPos < busZ - 175) s.zPos += 230
+      s.npc.group.position.set(s.laneOffset, 0.09, s.zPos)
+      s.npc.group.rotation.y = s.dir > 0 ? Math.PI : 0
+      animateWalk(s.npc, timeSec, 4.8)
+    }
+
+    for (const { stop, people } of crowds) {
+      const boardingHere = drive.dwellingAt === stop && stop.waiting > 0
+      for (let i = 0; i < people.length; i++) {
+        const person = people[i]
+        person.visible = i < stop.waiting
+        if (!person.visible) continue
+        if (boardingHere && i === stop.waiting - 1) {
+          person.position.x = person.userData.baseX - 0.65
+          person.position.y = 0.08 + Math.abs(Math.sin(now * 2)) * 0.12
+        } else {
+          person.position.x = person.userData.baseX
+          person.position.y = 0.08
+        }
+      }
+    }
+
+    const first = Math.floor(drive.distance / 18) - 3
+    for (const group of scenery.children) {
+      const offset = (group.userData.segment - first % 20 + 20) % 20
+      const segment = (first + offset) * 18
+      group.position.z = -segment
+      group.visible = Math.abs(segment - drive.terminal.distance) > 24
+      group.scale.y = segment > myaynigone ? 1.35 : segment < 900 ? 0.78 : 1
+    }
+
+    // 1. Render live rear-view & side wing mirrors (hide player cab so it never blocks reflections)
+    player.visible = false
+    rearCam.position.set(drive.lateral, 2.7, -drive.distance + 5.25)
+    rearCam.lookAt(drive.lateral, 2.0, -drive.distance + 55)
+    renderer.setRenderTarget(rearTarget)
+    renderer.render(scene, rearCam)
+
+    leftMirrorCam.position.set(drive.lateral - 1.48, 2.32, -drive.distance - 4.4)
+    leftMirrorCam.lookAt(drive.lateral - 3.6, 1.5, -drive.distance + 38)
+    renderer.setRenderTarget(leftMirrorTarget)
+    renderer.render(scene, leftMirrorCam)
+
+    rightMirrorCam.position.set(drive.lateral + 1.48, 2.32, -drive.distance - 4.4)
+    rightMirrorCam.lookAt(drive.lateral + 2.8, 1.4, -drive.distance + 36)
+    renderer.setRenderTarget(rightMirrorTarget)
+    renderer.render(scene, rightMirrorCam)
+
+    renderer.setRenderTarget(null)
+    player.visible = true
+
+    // 2. Main high driver POV camera (eye at y=2.38, cleanly above steering wheel at y=1.86..2.01)
+    const speedFovBoost = Math.min(8, Math.max(0, (drive.speed * 3.6 - 50) * 0.085))
+    const desiredFov = baseFov + speedFovBoost
+    if (Math.abs(camera.fov - desiredFov) > 0.05) {
+      camera.fov = desiredFov
+      camera.updateProjectionMatrix()
+    }
+    const shakeX = drive.crashShake > 0 ? (Math.random() - 0.5) * 0.24 * drive.crashShake : 0
+    const shakeY = drive.crashShake > 0 ? (Math.random() - 0.5) * 0.18 * drive.crashShake : 0
+    const bob = Math.sin(drive.distance * 0.7) * Math.min(1, drive.speed / 18) * 0.015
+    const portraitShift = camera.aspect < 0.8 ? 0.08 : 0
+    camera.position.set(drive.lateral - 0.44 + portraitShift + shakeX, 2.38 + bob + shakeY, -drive.distance - 3.7)
+    camera.lookAt(
+      drive.lateral - 0.36 + portraitShift + drive.steer * 0.65,
+      1.52 + bob * 0.4 + drive.pitch * 18,
+      -drive.distance - 16
+    )
+    renderer.render(scene, camera)
+  }
+  return frame
+}

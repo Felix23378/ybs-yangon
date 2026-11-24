@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#17291f">
+  <title>YBS 37 · ရန်ကုန်ဘတ်စ်ကားမောင်းဂိမ်း</title>
+</head>
+<body>
+<main id="game">
+  <div id="scene" aria-hidden="true"></div>
+  <div id="fx" aria-hidden="true"></div>
+  <header class="hud">
+    <div class="route"><strong>37</strong><div><b>YBS · ရန်ကုန်</b><small id="next"></small></div></div>
+    <div class="cash"><div><small>ကားခ</small><b id="fare">0 ကျပ်</b></div><div><small>ကျော်တက်ဆု</small><b id="bonus">0 ကျပ်</b></div></div>
+    <div class="hud-actions">
+      <button id="mapToggle" aria-label="လမ်းကြောင်းမြေပုံ" title="လမ်းကြောင်းမြေပုံ">🗺️</button>
+      <button id="mute" aria-label="အသံဖွင့်/ပိတ်" title="အသံဖွင့်/ပိတ်">🔊</button>
+      <button id="pause" aria-label="ခဏရပ်" title="ခဏရပ် (Esc)">Ⅱ</button>
+    </div>
+    <progress id="progress" max="1" value="0" aria-label="ခရီးစဉ်တိုးတက်မှု"></progress>
+  </header>
+  <aside id="routemap" class="routemap" aria-label="မှတ်တိုင်များနှင့် လမ်းကြောင်းမြေပုံ">
+    <canvas id="mapCanvas" width="186" height="260"></canvas>
+  </aside>
+  <output id="notice" aria-live="polite"></output>
+  <div class="bottom-right">
+    <button id="hornBtn" data-input="horn" aria-label="ဟွန်းတီးရန် (H)">📣 <span>ဟွန်း <kbd>H</kbd></span></button>
+    <div class="speed"><b id="speed">00</b><small>ကီလို/နာရီ</small></div>
+  </div>
+  <div class="controls" aria-label="ဖုန်းမောင်းနှင်ခလုတ်များ">
+    <div class="steer-pad">
+      <button data-input="left" aria-label="ဘယ်ကွေ့">←</button>
+      <button data-input="right" aria-label="ညာကွေ့">→</button>
+    </div>
+    <div class="pedal-pad">
+      <button class="btn-horn" data-input="horn" aria-label="ဟွန်းတီး">📣 ဟွန်း</button>
+      <div class="pedals">
+        <button class="btn-brake" data-input="brake">ဘရိတ်</button>
+        <button class="btn-gas" data-input="gas">မောင်း</button>
+      </div>
+    </div>
+  </div>
+  <section id="overlay" class="overlay">
+    <div class="ticket">
+      <div class="ticket-brand"><span>37</span> ရန်ကုန်ဘတ်စ်ကားဝန်ဆောင်မှု</div>
+      <h1 id="title">ရန်ကုန်ဘတ်စ်ကား<br>မောင်းဂိမ်း</h1>
+      <p id="description">ထောက်ကြန့် → ခြောက်ထပ်ရုံး</p>
+      <p id="details">မှတ်တိုင်အဝါကွက်တွင် ရပ်ပြီး ခရီးသည်တင်ပါ (တစ်ဦး 500 ကျပ်)၊ သို့မဟုတ် ကျော်မောင်းနိုင်သည်။ အခြား YBS လိုင်းများ ခရီးသည်မလုမီ အမြန်မောင်းပြီး ဟွန်း (H) တီး၍ ရှေ့ကားများကို ဖယ်ခိုင်းပါ။</p>
+      <button id="primary">ခရီးစဉ်စတင်မည်</button>
+      <small id="help">WASD / မြှားခလုတ် · H / F ဟွန်းတီး · ဖုန်းတွင် မျက်နှာပြင်ခလုတ်များဖြင့် မောင်းပါ</small>
+    </div>
+  </section>
+</main>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

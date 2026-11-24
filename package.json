@@ -1,0 +1,8 @@
+{
+  "name": "ybs-yangon",
+  "private": true,
+  "type": "module",
+  "scripts": {"dev":"vite","build":"tsc --noEmit && vite build --base ./"},
+  "dependencies":{"three":"^0.179.1"},
+  "devDependencies":{"@types/three":"^0.179.0","typescript":"^5.8.3","vite":"^6.3.5"}
+}
