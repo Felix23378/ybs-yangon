@@ -5,26 +5,26 @@ import { busHalfLength, curb, type Drive, type Stop, type Vehicle } from './driv
 const material = (color: number, roughness = 0.85, metalness = 0.05) =>
   new T.MeshStandardMaterial({ color, roughness, metalness })
 
-// Stylized Yangon Golden-Dusk / Monsoon-Twilight Palette
-const asphalt = material(0x262a33, 0.44, 0.14) // Rain-kissed dark twilight tarmac
-const concrete = material(0x524c54, 0.82)
-const white = material(0xffe8c8, 0.6)
-const yellow = new T.MeshBasicMaterial({ color: 0xffc857 }) // Crisp glowing road markings
-const glass = material(0x1b2b38, 0.2, 0.3)
-const litWindow = new T.MeshBasicMaterial({ color: 0xffc978 }) // Warm glowing shophouse / bus cabin light
-const coolWindow = new T.MeshBasicMaterial({ color: 0x9de3d8 })
-const lampGlow = new T.MeshBasicMaterial({ color: 0xffd580 })
-const headLightGlow = new T.MeshBasicMaterial({ color: 0xfff4d4 })
-const tailLightGlow = new T.MeshBasicMaterial({ color: 0xff3b30 })
-const black = material(0x181c22, 0.85)
-const rubber = material(0x14171c, 0.92)
-const red = material(0xc84336, 0.72)
-const hazardGlow = new T.MeshBasicMaterial({ color: 0xffae24 })
-const silver = new T.MeshStandardMaterial({ color: 0xc2ccd1, roughness: 0.3, metalness: 0.6 })
+// Bright Stylized Yangon Golden-Afternoon Palette (luminous, crisp, warm daylight-sunset)
+const asphalt = material(0x4a4f5a, 0.52, 0.08)
+const concrete = material(0xb5a69b, 0.8)
+const white = material(0xfff4e0, 0.55)
+const yellow = new T.MeshBasicMaterial({ color: 0xffd05b })
+const glass = material(0x2a4559, 0.2, 0.25)
+const litWindow = new T.MeshBasicMaterial({ color: 0xffd88c })
+const coolWindow = new T.MeshBasicMaterial({ color: 0xadeee3 })
+const lampGlow = new T.MeshBasicMaterial({ color: 0xffe49e })
+const headLightGlow = new T.MeshBasicMaterial({ color: 0xfff8e0 })
+const tailLightGlow = new T.MeshBasicMaterial({ color: 0xff463a })
+const black = material(0x20262e, 0.82)
+const rubber = material(0x1b1f26, 0.9)
+const red = material(0xd94e3f, 0.7)
+const hazardGlow = new T.MeshBasicMaterial({ color: 0xffb830 })
+const silver = new T.MeshStandardMaterial({ color: 0xd2dce0, roughness: 0.28, metalness: 0.55 })
 const foliage = [
-  material(0x1e4d3b, 0.88), // Deep monsoon emerald
-  material(0x2b6147, 0.86), // Tropical rain-tree green
-  material(0xd45b39, 0.78), // Iconic Yangon flame-of-the-forest (Sein-ban) blossoms
+  material(0x2d7352, 0.84), // Vibrant tropical emerald
+  material(0x3f8c5e, 0.82), // Sunlit rain-tree green
+  material(0xeb6942, 0.74), // Bright Yangon Sein-ban flame blossoms
 ]
 const box = new T.BoxGeometry(1, 1, 1)
 
@@ -131,12 +131,12 @@ function createSkyTexture() {
   canvas.height = 256
   const ctx = canvas.getContext('2d')!
   const grad = ctx.createLinearGradient(0, 0, 0, 256)
-  grad.addColorStop(0.0, '#161b38') // Deep twilight indigo zenith
-  grad.addColorStop(0.32, '#3a2d54') // Monsoon violet
-  grad.addColorStop(0.56, '#96475b') // Dusk rose-magenta
-  grad.addColorStop(0.74, '#e07a52') // Sunset coral-orange
-  grad.addColorStop(0.86, '#f7b267') // Burmese amber-gold horizon
-  grad.addColorStop(1.0, '#3a2a38') // Ground haze
+  grad.addColorStop(0.0, '#3b73b5') // Bright clear tropical sky blue
+  grad.addColorStop(0.32, '#7596cc') // Warm pastel azure
+  grad.addColorStop(0.56, '#d99890') // Rosy golden afternoon glow
+  grad.addColorStop(0.75, '#f5b476') // Warm Burmese apricot sunset
+  grad.addColorStop(0.88, '#ffe094') // Bright golden horizon
+  grad.addColorStop(1.0, '#d8b498') // Bright ground haze
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, 32, 256)
   const tex = new T.CanvasTexture(canvas)
@@ -243,8 +243,8 @@ function createCockpit(rearTex: T.Texture, leftMirrorTex: T.Texture, rightMirror
   const trimMat = material(0x2f3b44, 0.68)
   const rimMat = new T.MeshStandardMaterial({ color: 0x1a1f24, roughness: 0.6, metalness: 0.18 })
 
-  // Warm sunset-amber cabin interior light
-  const cabLight = new T.PointLight(0xffd9a3, 2.6, 5.8)
+  // Bright cabin interior light so dashboard & steering wheel are vivid
+  const cabLight = new T.PointLight(0xfff1d2, 3.6, 6.5)
   cabLight.position.set(-0.1, 2.65, -3.95)
   cab.add(cabLight)
 
@@ -413,17 +413,18 @@ interface StopCrowd {
 
 export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
   const scene = new T.Scene()
-  scene.background = new T.Color(0x2a2640)
-  // Warm rose-amber twilight atmospheric fog
-  scene.fog = new T.FogExp2(0x7d4c5c, 0.0068)
+  scene.background = new T.Color(0x9ab5d4)
+  // Bright warm golden-hour atmospheric haze
+  scene.fog = new T.FogExp2(0xe4b898, 0.0046)
 
-  // Stylized Golden-Dusk Lighting: cool twilight sky overhead + warm sunset bounce from below/horizon
-  scene.add(new T.HemisphereLight(0xffb578, 0x262940, 1.9))
-  const sunsetSun = new T.DirectionalLight(0xff9b54, 2.35)
-  sunsetSun.position.set(-28, 14, -45)
+  // Bright Golden-Afternoon Lighting: luminous sky, strong sunlight, and soft ambient fill
+  scene.add(new T.AmbientLight(0xfff4e0, 0.6))
+  scene.add(new T.HemisphereLight(0xfff5db, 0x7e7970, 2.75))
+  const sunsetSun = new T.DirectionalLight(0xffdfa6, 2.85)
+  sunsetSun.position.set(-28, 22, -45)
   scene.add(sunsetSun)
-  const rimLight = new T.DirectionalLight(0x6e85c9, 0.9)
-  rimLight.position.set(22, 24, 30)
+  const rimLight = new T.DirectionalLight(0xb8d4ff, 1.15)
+  rimLight.position.set(22, 26, 30)
   scene.add(rimLight)
 
   // Gradient Sunset Sky Dome & Glowing Horizon Sun + Distant Golden Pagoda Silhouette (follows bus!)
@@ -461,7 +462,7 @@ export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
   renderer.outputColorSpace = T.SRGBColorSpace
   renderer.toneMapping = T.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.08
+  renderer.toneMappingExposure = 1.24
   host.append(renderer.domElement)
 
   let baseFov = 68
@@ -492,7 +493,7 @@ export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
   const rightMirrorCam = new T.PerspectiveCamera(56, 144 / 216, 0.4, 190)
 
   const length = drive.terminal.distance + 180
-  block(scene, material(0x28342e, 0.92), 0, -0.26, -length / 2 + 30, 260, 0.3, length + 90)
+  block(scene, material(0x527a56, 0.9), 0, -0.26, -length / 2 + 30, 260, 0.3, length + 90)
   block(scene, asphalt, 0, -0.07, -length / 2 + 30, 16.1, 0.12, length + 90)
   for (const x of [-9.4, 9.4]) block(scene, concrete, x, -0.01, -length / 2 + 30, 2.7, 0.22, length + 90)
   for (const x of [-7.85, -0.13, 0.13, 7.85]) {
@@ -604,8 +605,8 @@ export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
     }
   }
 
-  // Stylized Heritage Yangon Twilight Shophouses + Neon Burmese Signs + Glowing Streetlights
-  const walls = [0x9e5b4b, 0x3b5963, 0xb88656, 0x524661, 0xc79d73].map(c => material(c, 0.82))
+  // Bright Stylized Heritage Yangon Shophouses + Neon Burmese Signs + Streetlights
+  const walls = [0xe8a482, 0x73adb5, 0xf2c98d, 0xa892bd, 0xf5dbb0].map(c => material(c, 0.78))
   const neonShops = [
     ['လက်ဖက်ရည်', '#241428', '#ff9e64'],
     ['မုန့်ဟင်းခါး', '#142926', '#4df0b0'],
@@ -696,7 +697,7 @@ export function createWorld(host: HTMLElement, drive: Drive, start: Stop) {
   }
 
   const terminalZ = -drive.terminal.distance
-  const office = material(0x7c686e, 0.72)
+  const office = material(0xd8bfae, 0.72)
   block(scene, office, 18.3, 8.4, terminalZ - 6, 10, 16.8, 25)
   for (let floor = 0; floor < 6; floor++) {
     block(scene, white, 18.25, 1.1 + floor * 2.65, terminalZ - 6, 10.45, 0.18, 25.3)

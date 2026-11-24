@@ -41,9 +41,9 @@ button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px 8px; align-items: stretch; pointer-events: none; z-index: 2;
 }
-.route, .cash, .speed, #pause, #mute, #mapToggle, .routemap, #hornBtn {
-  background: var(--panel); border: 1px solid #ffbe4f38; border-radius: 10px;
-  box-shadow: 0 4px 18px #080c1766; backdrop-filter: blur(6px);
+.route, .cash, .speed, #pause, #mute, #mapToggle, #musicBtn, .routemap, .radio, #hornBtn {
+  background: var(--panel); border: 1px solid #ffbe4f44; border-radius: 10px;
+  box-shadow: 0 4px 18px #080c1755; backdrop-filter: blur(6px);
 }
 .route {
   display: flex; gap: 9px; padding: 6px 10px 6px 6px;
@@ -66,12 +66,40 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
 .cash small { font-size: 10px; }
 #bonus { color: var(--accent); }
 .hud-actions { display: flex; gap: 6px; pointer-events: auto; }
-#pause, #mute, #mapToggle {
+#pause, #mute, #mapToggle, #musicBtn {
   width: 38px; min-height: 38px; font-size: 16px; padding: 0;
   display: grid; place-items: center;
 }
 #pause:disabled { opacity: .6; }
-#mapToggle.active { border-color: var(--accent); }
+#mapToggle.active, #musicBtn.active { border-color: var(--accent); background: #263145ee; }
+#musicBtn.playing { color: var(--accent); box-shadow: 0 0 12px #ffbe4f66; }
+
+/* 1980s YouTube Bus Radio */
+.radio {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top)) + 68px);
+  right: max(12px, env(safe-area-inset-right));
+  width: 230px; padding: 6px; z-index: 4; pointer-events: auto;
+}
+.radio-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  font-size: 11px; font-weight: 800; color: var(--accent);
+}
+#radioTrack { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.radio-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.radio-btns button {
+  background: #ffffff18; border: 0; border-radius: 5px;
+  width: 24px; height: 24px; font-size: 12px; display: grid; place-items: center; padding: 0;
+}
+.radio-frame {
+  margin-top: 6px; width: 100%; aspect-ratio: 16 / 9;
+  border-radius: 6px; overflow: hidden; background: #000;
+}
+.radio-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+.radio.mini { width: 190px; }
+.radio.mini .radio-frame {
+  position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0.01; pointer-events: none;
+}
 progress { grid-column: 1 / -1; width: 100%; height: 4px; border: 0; background: #141e2e99; appearance: none; border-radius: 2px; }
 progress::-webkit-progress-bar { background: #141e2e99; border-radius: 2px; }
 progress::-webkit-progress-value { background: linear-gradient(90deg, var(--sunset), var(--accent)); border-radius: 2px; }
@@ -212,7 +240,13 @@ p { margin: 0 0 10px; line-height: 1.55; }
     grid-column: 2 / 3; grid-row: 1;
     align-items: center; gap: 4px;
   }
-  #pause, #mute, #mapToggle { width: 34px; min-height: 34px; font-size: 14px; }
+  #pause, #mute, #mapToggle, #musicBtn { width: 32px; min-height: 32px; font-size: 13.5px; }
+  .radio {
+    top: calc(max(8px, env(safe-area-inset-top)) + 88px);
+    right: max(8px, env(safe-area-inset-right));
+    width: 196px;
+  }
+  .radio.mini { width: 164px; }
   .cash {
     grid-column: 1 / -1; grid-row: 2;
     justify-content: space-between; text-align: left;

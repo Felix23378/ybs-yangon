@@ -23,7 +23,51 @@ const notice = el('notice')
 const pause = el<HTMLButtonElement>('pause')
 const muteBtn = el<HTMLButtonElement>('mute')
 const mapToggle = el<HTMLButtonElement>('mapToggle')
+const musicBtn = el<HTMLButtonElement>('musicBtn')
+const radioEl = el('radio')
+const radioTrackEl = el('radioTrack')
+const radioFrameWrap = el('radioFrameWrap')
+const radioNext = el<HTMLButtonElement>('radioNext')
+const radioMin = el<HTMLButtonElement>('radioMin')
+const radioStop = el<HTMLButtonElement>('radioStop')
 const routemapEl = el('routemap')
+
+// Verified 1980s YouTube hits for the in-bus radio
+const songs1980s = [
+  { id: 'djV11Xbc914', title: 'a-ha · Take On Me (1985)' },
+  { id: 'FTQbiNvZqaY', title: 'Toto · Africa (1982)' },
+  { id: 'qeMFqkcPYcg', title: 'Eurythmics · Sweet Dreams (1983)' },
+  { id: 'Zi_XLOBDo_Y', title: 'Michael Jackson · Billie Jean (1983)' },
+  { id: 'btPJPFnesV4', title: 'Survivor · Eye of the Tiger (1982)' },
+] as const
+let radioIndex = 0
+let radioPlaying = false
+let radioMini = false
+
+function loadRadioTrack(index: number) {
+  radioIndex = (index + songs1980s.length) % songs1980s.length
+  const song = songs1980s[radioIndex]
+  radioTrackEl.textContent = '📻 ' + song.title
+  const iframe = document.createElement('iframe')
+  iframe.src = `https://www.youtube.com/embed/${song.id}?autoplay=1&playsinline=1&rel=0&loop=1&playlist=${song.id}`
+  iframe.title = song.title
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
+  iframe.allowFullscreen = false
+  radioFrameWrap.replaceChildren(iframe)
+  radioPlaying = true
+  radioEl.hidden = false
+  radioEl.classList.toggle('mini', radioMini)
+  musicBtn.classList.add('active', 'playing')
+}
+
+function stopRadio() {
+  radioPlaying = false
+  radioMini = false
+  radioFrameWrap.replaceChildren()
+  radioEl.hidden = true
+  radioEl.classList.remove('mini')
+  musicBtn.classList.remove('active', 'playing')
+}
 const fx = el('fx')
 const mapCanvas = el<HTMLCanvasElement>('mapCanvas')
 const mapCtx = mapCanvas.getContext('2d')!
@@ -300,8 +344,37 @@ mapToggle.addEventListener('click', () => {
   syncMapVisibility()
   mapToggle.blur()
 })
+musicBtn.addEventListener('click', () => {
+  if (!radioPlaying) {
+    radioMini = false
+    loadRadioTrack(radioIndex)
+  } else {
+    radioMini = !radioMini
+    radioEl.classList.toggle('mini', radioMini)
+    radioMin.textContent = radioMini ? '+' : '−'
+  }
+  musicBtn.blur()
+})
+radioNext.addEventListener('click', () => {
+  loadRadioTrack(radioIndex + 1)
+  radioNext.blur()
+})
+radioMin.addEventListener('click', () => {
+  radioMini = !radioMini
+  radioEl.classList.toggle('mini', radioMini)
+  radioMin.textContent = radioMini ? '+' : '−'
+  radioMin.blur()
+})
+radioStop.addEventListener('click', () => {
+  stopRadio()
+  radioStop.blur()
+})
 
-window.addEventListener('blur', pauseDrive)
+window.addEventListener('blur', () => {
+  // Don't pause when the user taps inside the embedded YouTube 1980s radio player
+  if (document.activeElement?.tagName === 'IFRAME') return
+  pauseDrive()
+})
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseDrive()
 })
