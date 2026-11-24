@@ -79,7 +79,7 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
   position: absolute;
   top: calc(max(12px, env(safe-area-inset-top)) + 68px);
   right: max(12px, env(safe-area-inset-right));
-  width: 230px; padding: 6px; z-index: 4; pointer-events: auto;
+  width: 256px; padding: 7px; z-index: 10; pointer-events: auto; touch-action: auto;
 }
 .radio-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
@@ -88,17 +88,23 @@ small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35;
 #radioTrack { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .radio-btns { display: flex; gap: 4px; flex-shrink: 0; }
 .radio-btns button {
-  background: #ffffff18; border: 0; border-radius: 5px;
-  width: 24px; height: 24px; font-size: 12px; display: grid; place-items: center; padding: 0;
+  background: #ffffff20; border: 0; border-radius: 5px;
+  width: 26px; height: 26px; font-size: 12px; display: grid; place-items: center; padding: 0;
 }
+.radio-hint {
+  margin-top: 4px; font-size: 10.5px; color: var(--teal); line-height: 1.35;
+}
+.radio-hint:empty { display: none; }
+.radio-hint a { color: var(--accent); text-decoration: underline; margin-left: 4px; }
 .radio-frame {
   margin-top: 6px; width: 100%; aspect-ratio: 16 / 9;
-  border-radius: 6px; overflow: hidden; background: #000;
+  border-radius: 6px; overflow: hidden; background: #000; touch-action: auto;
 }
-.radio-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
-.radio.mini { width: 190px; }
+.radio-frame iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: auto; }
+.radio.mini { width: 210px; }
+.radio.mini .radio-hint { display: none; }
 .radio.mini .radio-frame {
-  position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0.01; pointer-events: none;
+  position: absolute; width: 2px; height: 2px; margin: 0; opacity: 0.01; pointer-events: none;
 }
 progress { grid-column: 1 / -1; width: 100%; height: 4px; border: 0; background: #141e2e99; appearance: none; border-radius: 2px; }
 progress::-webkit-progress-bar { background: #141e2e99; border-radius: 2px; }

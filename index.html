@@ -28,12 +28,14 @@
     <div class="radio-bar">
       <span id="radioTrack">📻 1980s မြန်မာသီချင်း</span>
       <div class="radio-btns">
+        <button id="radioPlay" aria-label="ဖွင့်/ရပ်" title="ဖွင့်/ရပ်">▶</button>
         <button id="radioNext" aria-label="နောက်တစ်ပုဒ်" title="နောက်တစ်ပုဒ်">⏭</button>
         <button id="radioMin" aria-label="သေးထားမည်" title="သေးထားမည်">−</button>
         <button id="radioStop" aria-label="ပိတ်မည်" title="ပိတ်မည်">✕</button>
       </div>
     </div>
-    <div id="radioFrameWrap" class="radio-frame"></div>
+    <div id="radioHint" class="radio-hint"></div>
+    <div id="radioFrameWrap" class="radio-frame"><div id="ytPlayer"></div></div>
   </aside>
   <output id="notice" aria-live="polite"></output>
   <div class="bottom-right">

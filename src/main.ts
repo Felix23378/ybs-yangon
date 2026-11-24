@@ -26,13 +26,15 @@ const mapToggle = el<HTMLButtonElement>('mapToggle')
 const musicBtn = el<HTMLButtonElement>('musicBtn')
 const radioEl = el('radio')
 const radioTrackEl = el('radioTrack')
+const radioHintEl = el('radioHint')
 const radioFrameWrap = el('radioFrameWrap')
+const radioPlay = el<HTMLButtonElement>('radioPlay')
 const radioNext = el<HTMLButtonElement>('radioNext')
 const radioMin = el<HTMLButtonElement>('radioMin')
 const radioStop = el<HTMLButtonElement>('radioStop')
 const routemapEl = el('routemap')
 
-// Verified 1980s Myanmar classic stereo tracks & albums on YouTube
+// Verified 1980s Myanmar classic stereo tracks & albums on YouTube (playableInEmbed: true)
 const songs1980s = [
   { id: 'a8KtIByKC54', title: 'စိုင်းထီးဆိုင် · လူကြမ်းမင်းသား (1981)' },
   { id: 'QtgqqGsTP7g', title: 'ခင်မောင်တိုး · မဟာဆန်သူ' },
@@ -42,34 +44,177 @@ const songs1980s = [
   { id: 'Ssyn53WCcmc', title: 'နှလုံးသားဟစ်ကြွေးသံများ (1988)' },
   { id: 'suOJjYp12vE', title: 'စိုင်းထီးဆိုင် · လက်ရွေးစင်သီချင်းများ' },
 ] as const
+
+interface YTPlayer {
+  loadVideoById(videoId: string): void
+  playVideo(): void
+  pauseVideo(): void
+  stopVideo(): void
+  unMute(): void
+  getPlayerState(): number
+  getIframe(): HTMLIFrameElement
+}
+interface YTGlobal {
+  Player: new (
+    el: string | HTMLElement,
+    opts: {
+      videoId: string
+      playerVars: Record<string, string | number>
+      events: {
+        onReady?: (e: { target: YTPlayer }) => void
+        onStateChange?: (e: { data: number; target: YTPlayer }) => void
+        onError?: () => void
+      }
+    }
+  ) => YTPlayer
+}
+declare global {
+  interface Window {
+    YT?: YTGlobal
+    onYouTubeIframeAPIReady?: () => void
+  }
+}
+
 let radioIndex = 0
-let radioPlaying = false
+let radioOpen = false
 let radioMini = false
+let ytApiRequested = false
+let ytPlayer: YTPlayer | undefined
+let ytReady = false
+let pendingPlay = false
+let autoplayCheckTimer: number | undefined
+
+function setRadioHint(songId: string, msg: string) {
+  radioHintEl.textContent = msg
+  if (msg) {
+    const link = document.createElement('a')
+    link.href = 'https://www.youtube.com/watch?v=' + songId
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.textContent = 'YouTube ↗'
+    radioHintEl.append(link)
+  }
+}
+
+function ensureYouTubeApi(onReady: () => void) {
+  if (window.YT?.Player) {
+    onReady()
+    return
+  }
+  const prev = window.onYouTubeIframeAPIReady
+  window.onYouTubeIframeAPIReady = () => {
+    prev?.()
+    onReady()
+  }
+  if (ytApiRequested) return
+  ytApiRequested = true
+  const script = document.createElement('script')
+  script.src = 'https://www.youtube.com/iframe_api'
+  script.async = true
+  document.head.append(script)
+}
+
+function createEmbedIframe(song: (typeof songs1980s)[number]) {
+  const iframe = document.createElement('iframe')
+  iframe.id = 'ytPlayer'
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+  const originParam = location.origin.startsWith('http') ? '&origin=' + encodeURIComponent(location.origin) : ''
+  iframe.src = `https://www.youtube.com/embed/${song.id}?enablejsapi=1&autoplay=1&playsinline=1&rel=0&controls=1&modestbranding=1${originParam}`
+  iframe.title = song.title
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'
+  return iframe
+}
+
+function scheduleAutoplayCheck(songId: string) {
+  window.clearTimeout(autoplayCheckTimer)
+  autoplayCheckTimer = window.setTimeout(() => {
+    if (!radioOpen || !ytPlayer || !ytReady) return
+    const state = ytPlayer.getPlayerState()
+    if (state !== 1 && state !== 3) {
+      setRadioHint(songId, 'ဖွင့်ရန် ဗီဒီယို ▶ ကိုတစ်ချက်နှိပ်ပါ ·')
+      radioPlay.textContent = '▶'
+    }
+  }, 1800)
+}
 
 function loadRadioTrack(index: number) {
   radioIndex = (index + songs1980s.length) % songs1980s.length
   const song = songs1980s[radioIndex]
   radioTrackEl.textContent = '📻 ' + song.title
-  const iframe = document.createElement('iframe')
-  iframe.src = `https://www.youtube.com/embed/${song.id}?autoplay=1&playsinline=1&rel=0&loop=1&playlist=${song.id}`
-  iframe.title = song.title
-  iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
-  iframe.allowFullscreen = false
-  radioFrameWrap.replaceChildren(iframe)
-  radioPlaying = true
+  radioOpen = true
   radioEl.hidden = false
   radioEl.classList.toggle('mini', radioMini)
   musicBtn.classList.add('active', 'playing')
+  setRadioHint(song.id, 'ဖွင့်ရန် ဗီဒီယို ▶ ကိုနှိပ်ပါ ·')
+  pendingPlay = true
+
+  // If YT Player already exists and is ready, switch video cleanly inside user gesture
+  if (ytPlayer && ytReady) {
+    ytPlayer.loadVideoById(song.id)
+    ytPlayer.unMute()
+    ytPlayer.playVideo()
+    scheduleAutoplayCheck(song.id)
+    return
+  }
+
+  // Mount iframe immediately with strict-origin-when-cross-origin so YouTube never throws Error 153
+  const iframe = createEmbedIframe(song)
+  radioFrameWrap.replaceChildren(iframe)
+
+  ensureYouTubeApi(() => {
+    if (!radioOpen || !window.YT?.Player || ytPlayer) return
+    ytPlayer = new window.YT.Player(iframe, {
+      videoId: song.id,
+      playerVars: {},
+      events: {
+        onReady: e => {
+          ytReady = true
+          if (pendingPlay && radioOpen) {
+            e.target.unMute()
+            e.target.playVideo()
+            scheduleAutoplayCheck(songs1980s[radioIndex].id)
+          }
+        },
+        onStateChange: e => {
+          if (e.data === 1) {
+            radioPlay.textContent = '⏸'
+            musicBtn.classList.add('playing')
+            radioHintEl.textContent = ''
+          } else if (e.data === 2) {
+            radioPlay.textContent = '▶'
+            musicBtn.classList.remove('playing')
+          } else if (e.data === 0) {
+            loadRadioTrack(radioIndex + 1)
+          }
+        },
+        onError: () => {
+          setRadioHint(songs1980s[radioIndex].id, 'နောက်တစ်ပုဒ်ပြောင်းနေသည်… ·')
+          window.setTimeout(() => {
+            if (radioOpen) loadRadioTrack(radioIndex + 1)
+          }, 900)
+        },
+      },
+    })
+  })
 }
 
 function stopRadio() {
-  radioPlaying = false
+  window.clearTimeout(autoplayCheckTimer)
+  radioOpen = false
   radioMini = false
-  radioFrameWrap.replaceChildren()
+  pendingPlay = false
+  if (ytPlayer && ytReady) {
+    try { ytPlayer.stopVideo() } catch {}
+  }
   radioEl.hidden = true
   radioEl.classList.remove('mini')
+  radioPlay.textContent = '▶'
+  radioHintEl.textContent = ''
   musicBtn.classList.remove('active', 'playing')
 }
+
+// Preload YouTube IFrame API early so tapping 🎵 plays immediately
+ensureYouTubeApi(() => {})
 const fx = el('fx')
 const mapCanvas = el<HTMLCanvasElement>('mapCanvas')
 const mapCtx = mapCanvas.getContext('2d')!
@@ -347,8 +492,9 @@ mapToggle.addEventListener('click', () => {
   mapToggle.blur()
 })
 musicBtn.addEventListener('click', () => {
-  if (!radioPlaying) {
+  if (!radioOpen) {
     radioMini = false
+    radioMin.textContent = '−'
     loadRadioTrack(radioIndex)
   } else {
     radioMini = !radioMini
@@ -356,6 +502,17 @@ musicBtn.addEventListener('click', () => {
     radioMin.textContent = radioMini ? '+' : '−'
   }
   musicBtn.blur()
+})
+radioPlay.addEventListener('click', () => {
+  if (!ytPlayer || !ytReady) {
+    loadRadioTrack(radioIndex)
+  } else if (ytPlayer.getPlayerState() === 1) {
+    ytPlayer.pauseVideo()
+  } else {
+    ytPlayer.unMute()
+    ytPlayer.playVideo()
+  }
+  radioPlay.blur()
 })
 radioNext.addEventListener('click', () => {
   loadRadioTrack(radioIndex + 1)
