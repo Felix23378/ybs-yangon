@@ -30,14 +30,15 @@ export class SoundEngine {
   private started = false
 
   unlock() {
-    if (this.started) {
-      if (this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {})
-      return
-    }
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    if (!AudioCtx) return
-    const ctx = new AudioCtx()
-    this.ctx = ctx
+    try {
+      if (this.started) {
+        if (this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {})
+        return
+      }
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      this.ctx = ctx
 
     const master = ctx.createGain()
     master.gain.value = this.muted ? 0 : 0.5
@@ -174,6 +175,9 @@ export class SoundEngine {
     this.brakeGain = brakeGain
 
     this.started = true
+    } catch {
+      // AudioContext unavailable or restricted; game still runs cleanly
+    }
   }
 
   setMuted(muted: boolean) {
